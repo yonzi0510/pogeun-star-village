@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useReducer, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { colors, shadow } from './src/theme';
+import { gameReducer, initialGameState } from './src/game/state';
 
 type Tab = '마을' | '친구' | '꾸미기' | '앨범';
 
@@ -27,6 +28,13 @@ const tabs: Array<{ label: Tab; emoji: string }> = [
   { label: '친구', emoji: '🐰' },
   { label: '꾸미기', emoji: '🖌️' },
   { label: '앨범', emoji: '📖' },
+];
+
+const decorationItems = [
+  { id: 'cloud-swing', name: '구름 그네', emoji: '☁️', cost: 10, color: '#E8F6FF' },
+  { id: 'star-lamp', name: '별빛 램프', emoji: '🌟', cost: 12, color: '#FFF2C7' },
+  { id: 'ribbon-sofa', name: '리본 소파', emoji: '🎀', cost: 15, color: '#FFE2EC' },
+  { id: 'flower-table', name: '꽃잎 탁자', emoji: '🌼', cost: 8, color: '#E7F7DF' },
 ];
 
 function StatPill({ emoji, label, value }: { emoji: string; label: string; value: number }) {
@@ -57,6 +65,7 @@ function Building({ emoji, label, tint }: { emoji: string; label: string; tint: 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('마을');
   const [selectedResident, setSelectedResident] = useState('모모몽');
+  const [gameState, dispatch] = useReducer(gameReducer, initialGameState);
   const { width, height } = useWindowDimensions();
   const isTablet = width >= 768;
   const isWideLayout = width >= 900 && width > height;
@@ -65,13 +74,33 @@ export default function App() {
     () => residents.find((resident) => resident.name === selectedResident) ?? residents[1]!,
     [selectedResident],
   );
+  const recentPraise = gameState.praiseEvents[0]!;
+
+  const purchaseItem = (item: (typeof decorationItems)[number]) => {
+    if (gameState.ownedItemIds.includes(item.id)) {
+      Alert.alert(item.name, '이미 우리 마을에 있는 아이템이에요!');
+      return;
+    }
+    if (gameState.tokenBalance < item.cost) {
+      Alert.alert('토큰이 부족해요', `이 아이템에는 칭찬 토큰 ${item.cost}개가 필요해요.`);
+      return;
+    }
+    dispatch({
+      type: 'BUY_ITEM',
+      itemId: item.id,
+      itemName: item.name,
+      cost: item.cost,
+      transactionId: `buy-${item.id}`,
+      createdAt: new Date().toISOString(),
+    });
+  };
 
   const praisePanel = (
     <View style={styles.praiseCard}>
       <View style={styles.praiseIcon}><Text style={styles.praiseIconText}>💌</Text></View>
       <View style={styles.praiseCopy}>
         <Text style={styles.praiseTitle}>오늘 받은 따뜻한 칭찬</Text>
-        <Text style={styles.praiseText}>“스스로 장난감을 정리해서 정말 멋졌어!”</Text>
+        <Text style={styles.praiseText}>“{recentPraise.message}”</Text>
       </View>
       <Text style={styles.plusToken}>+3</Text>
     </View>
@@ -129,6 +158,72 @@ export default function App() {
     </View>
   );
 
+  const secondaryPanel = (
+    <View style={styles.secondaryCard}>
+      <Text style={styles.secondaryEyebrow}>포근별 마을</Text>
+      <Text style={styles.secondaryTitle}>{activeTab}</Text>
+
+      {activeTab === '친구' && (
+        <View style={styles.friendGrid}>
+          {residents.map((resident) => (
+            <Pressable
+              key={resident.name}
+              onPress={() => Alert.alert(resident.name, resident.activity)}
+              style={({ pressed }) => [styles.friendCard, { backgroundColor: resident.color }, pressed && styles.pressed]}
+            >
+              <Text style={styles.friendEmoji}>{resident.emoji}</Text>
+              <Text style={styles.friendName}>{resident.name}</Text>
+              <Text style={styles.friendActivity}>{resident.activity}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {activeTab === '꾸미기' && (
+        <View style={styles.itemGrid}>
+          {decorationItems.map((item) => {
+            const owned = gameState.ownedItemIds.includes(item.id);
+            return (
+              <Pressable
+                key={item.id}
+                onPress={() => purchaseItem(item)}
+                style={({ pressed }) => [styles.itemCard, { backgroundColor: item.color }, pressed && styles.pressed]}
+              >
+                <Text style={styles.itemEmoji}>{item.emoji}</Text>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={[styles.itemCost, owned && styles.itemOwned]}>{owned ? '보유 중' : `⭐ ${item.cost}`}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {activeTab === '앨범' && (
+        <View style={styles.albumList}>
+          {gameState.praiseEvents.map((event) => (
+            <View key={event.id} style={styles.albumEntry}>
+              <View style={styles.albumIcon}><Text style={styles.albumIconText}>💌</Text></View>
+              <View style={styles.albumCopy}>
+                <Text style={styles.albumCategory}>{event.category} 칭찬</Text>
+                <Text style={styles.albumMessage}>{event.message}</Text>
+              </View>
+              <Text style={styles.albumTokens}>+{event.tokens}</Text>
+            </View>
+          ))}
+          <Text style={styles.ledgerTitle}>최근 토큰 기록</Text>
+          {gameState.transactions.slice(0, 5).map((transaction) => (
+            <View key={transaction.id} style={styles.ledgerRow}>
+              <Text style={styles.ledgerReason}>{transaction.reason}</Text>
+              <Text style={transaction.kind === 'earn' ? styles.ledgerEarn : styles.ledgerSpend}>
+                {transaction.kind === 'earn' ? '+' : '-'}{transaction.amount}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.sky} />
@@ -153,11 +248,11 @@ export default function App() {
           </View>
 
           <View style={[styles.statsRow, isTablet && styles.statsRowTablet]}>
-            <StatPill emoji="⭐" label="칭찬 토큰" value={24} />
-            <StatPill emoji="💫" label="별빛" value={320} />
+            <StatPill emoji="⭐" label="칭찬 토큰" value={gameState.tokenBalance} />
+            <StatPill emoji="💫" label="별빛" value={gameState.starlight} />
           </View>
 
-          {isWideLayout ? (
+          {activeTab !== '마을' ? secondaryPanel : isWideLayout ? (
             <View style={styles.wideBody}>
               <View style={styles.villagePane}>{villagePanel}</View>
               <View style={styles.sidePane}>
@@ -262,6 +357,33 @@ const styles = StyleSheet.create({
   tabletNoteEmoji: { fontSize: 30, marginBottom: 8 },
   tabletNoteTitle: { color: colors.cocoa, fontSize: 16, fontWeight: '900', marginBottom: 5 },
   tabletNoteText: { color: colors.muted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
+  secondaryCard: { minHeight: 500, backgroundColor: colors.paper, borderRadius: 30, borderWidth: 2, borderColor: '#F0E4D2', padding: 20, ...shadow },
+  secondaryEyebrow: { color: colors.muted, fontSize: 12, fontWeight: '800' },
+  secondaryTitle: { color: colors.cocoa, fontSize: 26, fontWeight: '900', marginTop: 3, marginBottom: 18 },
+  friendGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  friendCard: { flexGrow: 1, flexBasis: 180, minHeight: 190, borderRadius: 26, alignItems: 'center', justifyContent: 'center', padding: 18, borderWidth: 3, borderColor: colors.white },
+  friendEmoji: { fontSize: 60 },
+  friendName: { color: colors.cocoa, fontSize: 18, fontWeight: '900', marginTop: 8 },
+  friendActivity: { color: colors.muted, fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 5 },
+  itemGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  itemCard: { flexGrow: 1, flexBasis: 150, minHeight: 170, borderRadius: 25, alignItems: 'center', justifyContent: 'center', padding: 16, borderWidth: 3, borderColor: colors.white },
+  itemEmoji: { fontSize: 52 },
+  itemName: { color: colors.cocoa, fontSize: 15, fontWeight: '900', marginTop: 8 },
+  itemCost: { color: '#B27634', fontSize: 13, fontWeight: '900', marginTop: 6 },
+  itemOwned: { color: colors.grass },
+  albumList: { gap: 10 },
+  albumEntry: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF4F5', borderRadius: 20, padding: 14 },
+  albumIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  albumIconText: { fontSize: 24 },
+  albumCopy: { flex: 1 },
+  albumCategory: { color: colors.pink, fontSize: 11, fontWeight: '900' },
+  albumMessage: { color: colors.cocoa, fontSize: 13, fontWeight: '700', marginTop: 3 },
+  albumTokens: { color: colors.pink, fontSize: 18, fontWeight: '900' },
+  ledgerTitle: { color: colors.cocoa, fontSize: 17, fontWeight: '900', marginTop: 16, marginBottom: 2 },
+  ledgerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#EFE6D8', paddingVertical: 11 },
+  ledgerReason: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  ledgerEarn: { color: colors.grass, fontSize: 14, fontWeight: '900' },
+  ledgerSpend: { color: colors.pink, fontSize: 14, fontWeight: '900' },
   tabBar: { flexDirection: 'row', backgroundColor: colors.paper, borderTopColor: '#F0E4D2', borderTopWidth: 1, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10 },
   tabBarTablet: { alignSelf: 'center', width: '100%', maxWidth: 760, borderRadius: 24, borderWidth: 1, borderColor: '#F0E4D2', marginBottom: 12, paddingHorizontal: 18 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 5, borderRadius: 16 },
