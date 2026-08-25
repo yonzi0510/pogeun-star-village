@@ -18,9 +18,9 @@ const items = [
   { id: 'table', name: '꽃잎 탁자', emoji: '🌼', cost: 8 },
 ];
 
-const tabs: { name: Tab; emoji: string }[] = [
-  { name: '마을', emoji: '🏡' }, { name: '친구', emoji: '🐰' },
-  { name: '별뽑기', emoji: '🌟' }, { name: '꾸미기', emoji: '🖌️' }, { name: '앨범', emoji: '📖' },
+const tabs: { name: Tab; icon: string }[] = [
+  { name: '마을', icon: 'village' }, { name: '친구', icon: 'friends' },
+  { name: '별뽑기', icon: 'gacha' }, { name: '꾸미기', icon: 'decorate' }, { name: '앨범', icon: 'album' },
 ];
 
 function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
@@ -252,11 +252,11 @@ export default function Home() {
             <button className="map-hit garden-hit" aria-label="구름정원에 들어가기" onClick={() => setBuilding({ name: '구름정원', icon: '🌳', message: '포포와 꽃에 물을 주고 별씨앗을 심을 수 있는 정원이에요.' })} />
             <button className="map-hit post-hit" aria-label="별빛우체국에 들어가기" onClick={() => setBuilding({ name: '별빛우체국', icon: '📮', message: '두리콩이 가족의 칭찬 편지를 보관하고 있어요.' })} />
             <div className="moving-layer">{residents.map((entry, index) => <button key={entry.name} className={`moving-character ${index === 1 ? 'player' : 'npc'} ${selected === entry.name ? 'selected' : ''}`} style={{ left: `${positions[index]?.x ?? 50}%`, top: `${positions[index]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); index === 1 ? setNotice('지도를 눌러 모모몽을 움직여 보세요!') : talkTo(entry.name, index, entry.activity); }} aria-label={index === 1 ? '내 캐릭터 모모몽' : `${entry.name}에게 다가가 말 걸기`}><img src={entry.sprite} alt="" /><span>{index === 1 ? '내 모모몽' : entry.name}</span></button>)}</div>
-            <div className="move-guide">👆 지도를 눌러 이동 · ⌨️ 방향키도 가능</div>
+            <div className="move-guide">지도를 눌러 이동 · 방향키도 가능</div>
             <div className="speech"><strong>{resident?.name}</strong><span>{resident?.activity}</span></div>
           </div>
           <aside className="side-panel">
-            <div className="praise-card"><span>💌</span><div><small>오늘 받은 따뜻한 칭찬</small><p>“스스로 장난감을 정리해서 정말 멋졌어!”</p></div><strong>+3</strong></div>
+            <div className="praise-card"><div><small>오늘 받은 따뜻한 칭찬</small><p>“스스로 장난감을 정리해서 정말 멋졌어!”</p></div><strong>+3</strong></div>
             <div className="progress-card"><div><strong>다음 구역까지</strong><span>320 / 500 별빛</span></div><div className="progress"><i /></div><p>별빛이 모이면 포근한 이웃 구역의 구름이 걷혀요.</p></div>
             <div className="tip-card"><span>🌈</span><strong>태블릿에서 더 넓게!</strong><p>주민과 건물을 눌러 마을을 둘러보세요.</p></div>
           </aside>
@@ -270,7 +270,7 @@ export default function Home() {
 
         {tab === '앨범' && <section className="content-card album"><p className="eyebrow">우리 가족의 반짝이는 기록</p><h2>칭찬 앨범</h2><article><span>💌</span><div><small>정리 칭찬</small><p>스스로 장난감을 정리해서 정말 멋졌어!</p></div><strong>+3</strong></article>{sentLetters.map((letter, index) => <article className="sent-letter-record" key={`letter-${index}`}>{letter.drawing ? <img src={letter.drawing} alt="직접 그린 그림 편지" /> : <span>✍️</span>}<div><small>내가 보낸 손편지</small><p>{letter.text || '그림으로 마음을 전했어요.'}</p></div><strong>💗</strong></article>)}{owned.map((id) => { const item = items.find((entry) => entry.id === id); return item ? <article key={id}><span>{item.emoji}</span><div><small>마을 꾸미기</small><p>{item.name}을 마을에 놓았어요.</p></div><strong className="spent">-{item.cost}</strong></article> : null; })}</section>}
 
-        <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} onClick={() => selectTab(entry.name)}><span>{entry.emoji}</span>{entry.name}</button>)}</nav>
+        <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} onClick={() => selectTab(entry.name)}><span className={`menu-icon ${entry.icon}`} aria-hidden="true" />{entry.name}</button>)}</nav>
       </div>
       {notice && <button className="toast" onClick={() => setNotice('')} aria-live="polite">{notice}<span>×</span></button>}
       {building && <div className="modal-backdrop" role="presentation"><section className={`building-modal room ${building.name === '모모몽의 집' ? 'home-room' : building.name === '구름정원' ? 'garden-room' : 'post-room'}`} role="dialog" aria-modal="true" aria-label={building.name}>
