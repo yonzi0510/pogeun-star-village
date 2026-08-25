@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 
 type Tab = '마을' | '친구' | '꾸미기' | '앨범';
 
@@ -23,6 +23,31 @@ const tabs: { name: Tab; emoji: string }[] = [
   { name: '꾸미기', emoji: '🖌️' }, { name: '앨범', emoji: '📖' },
 ];
 
+function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const [color, setColor] = useState('#ff7895');
+
+  function point(event: PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    return { x: (event.clientX - rect.left) * (canvas.width / rect.width), y: (event.clientY - rect.top) * (canvas.height / rect.height) };
+  }
+  function start(event: PointerEvent<HTMLCanvasElement>) {
+    event.preventDefault(); drawing.current = true; event.currentTarget.setPointerCapture(event.pointerId);
+    const context = event.currentTarget.getContext('2d')!; const p = point(event);
+    context.beginPath(); context.moveTo(p.x, p.y);
+  }
+  function draw(event: PointerEvent<HTMLCanvasElement>) {
+    if (!drawing.current) return; event.preventDefault(); const context = event.currentTarget.getContext('2d')!; const p = point(event);
+    context.strokeStyle = color; context.lineWidth = 7; context.lineCap = 'round'; context.lineJoin = 'round'; context.lineTo(p.x, p.y); context.stroke(); onDraw(event.currentTarget.toDataURL('image/png'));
+  }
+  function clear() {
+    const canvas = canvasRef.current!; canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height); onDraw('');
+  }
+  return <div className="drawing-pad"><div className="drawing-tools"><span>그림 편지</span>{['#ff7895','#7858a6','#4a9b72','#e3a629'].map((entry) => <button key={entry} className={color === entry ? 'chosen' : ''} style={{ background: entry }} onClick={() => setColor(entry)} aria-label={`${entry} 색연필`} />)}<button className="eraser" onClick={clear}>지우기</button></div><canvas ref={canvasRef} width="520" height="260" onPointerDown={start} onPointerMove={draw} onPointerUp={() => drawing.current = false} onPointerCancel={() => drawing.current = false} aria-label="손가락으로 그림을 그리는 편지지" /></div>;
+}
+
 export default function Home() {
   const [tab, setTab] = useState<Tab>('마을');
   const [selected, setSelected] = useState('모모몽');
@@ -33,6 +58,10 @@ export default function Home() {
   const [building, setBuilding] = useState<{ name: string; icon: string; message: string } | null>(null);
   const [watered, setWatered] = useState<number[]>([]);
   const [letterOpened, setLetterOpened] = useState(false);
+  const [postMode, setPostMode] = useState<'read' | 'write'>('read');
+  const [letterText, setLetterText] = useState('');
+  const [drawingData, setDrawingData] = useState('');
+  const [sentLetters, setSentLetters] = useState<{ text: string; drawing: string }[]>([]);
   const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 45, y: 72 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
   const resident = residents.find((entry) => entry.name === selected) ?? residents[1];
 
@@ -107,6 +136,13 @@ export default function Home() {
     }
   }
 
+  function sendLetter() {
+    if (!letterText.trim() && !drawingData) return setNotice('글을 쓰거나 그림을 그려 주세요!');
+    setSentLetters((current) => [...current, { text: letterText.trim(), drawing: drawingData }]);
+    setNotice('두리콩이 가족에게 손편지를 전해 주러 출발했어요!');
+    setLetterText(''); setDrawingData(''); setPostMode('read');
+  }
+
   return (
     <main className="game-shell">
       <div className="sky-decor" aria-hidden="true"><span>☁️</span><span>✨</span><span>☁️</span></div>
@@ -143,7 +179,7 @@ export default function Home() {
 
         {tab === '꾸미기' && <section className="content-card"><p className="eyebrow">칭찬 토큰으로 꾸며요</p><h2>꾸미기</h2><div className="card-grid items">{items.map((item) => <button key={item.id} className="item-card" onClick={() => buy(item)}><span>{item.emoji}</span><strong>{item.name}</strong><em>{owned.includes(item.id) ? '보유 중' : `⭐ ${item.cost}`}</em></button>)}</div></section>}
 
-        {tab === '앨범' && <section className="content-card album"><p className="eyebrow">우리 가족의 반짝이는 기록</p><h2>칭찬 앨범</h2><article><span>💌</span><div><small>정리 칭찬</small><p>스스로 장난감을 정리해서 정말 멋졌어!</p></div><strong>+3</strong></article>{owned.map((id) => { const item = items.find((entry) => entry.id === id); return item ? <article key={id}><span>{item.emoji}</span><div><small>마을 꾸미기</small><p>{item.name}을 마을에 놓았어요.</p></div><strong className="spent">-{item.cost}</strong></article> : null; })}</section>}
+        {tab === '앨범' && <section className="content-card album"><p className="eyebrow">우리 가족의 반짝이는 기록</p><h2>칭찬 앨범</h2><article><span>💌</span><div><small>정리 칭찬</small><p>스스로 장난감을 정리해서 정말 멋졌어!</p></div><strong>+3</strong></article>{sentLetters.map((letter, index) => <article className="sent-letter-record" key={`letter-${index}`}>{letter.drawing ? <img src={letter.drawing} alt="직접 그린 그림 편지" /> : <span>✍️</span>}<div><small>내가 보낸 손편지</small><p>{letter.text || '그림으로 마음을 전했어요.'}</p></div><strong>💗</strong></article>)}{owned.map((id) => { const item = items.find((entry) => entry.id === id); return item ? <article key={id}><span>{item.emoji}</span><div><small>마을 꾸미기</small><p>{item.name}을 마을에 놓았어요.</p></div><strong className="spent">-{item.cost}</strong></article> : null; })}</section>}
 
         <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} onClick={() => selectTab(entry.name)}><span>{entry.emoji}</span>{entry.name}</button>)}</nav>
       </div>
@@ -152,7 +188,7 @@ export default function Home() {
         <header className="room-header"><div><p className="eyebrow">건물에 들어왔어요</p><h2>{building.icon} {building.name}</h2></div><button className="room-close" onClick={() => setBuilding(null)} aria-label="마을로 돌아가기">← 마을로</button></header>
         {building.name === '모모몽의 집' && <div className="room-play home-play"><div className="room-window">☀️<span>☁️</span></div><div className="bed">☁️<strong>포근 침대</strong></div><div className="placed-items">{owned.length ? owned.map((id) => { const item = items.find((entry) => entry.id === id); return item && <button key={id} onClick={() => setNotice(`${item.name}을(를) 예쁘게 놓았어요!`)}><span>{item.emoji}</span>{item.name}</button>; }) : <p>꾸미기 상점에서 가구를 사면<br />이 방에 나타나요!</p>}</div><img src="/momomong.png" alt="집 안의 모모몽" /></div>}
         {building.name === '구름정원' && <div className="room-play garden-play"><p className="quest-bubble">포포: 꽃 세 송이에 물을 주면<br /><strong>칭찬 토큰 3개</strong>를 줄게!</p><img src="/popo.png" alt="정원사 포포" /> <div className="flower-row">{['🌷','🌼','🌸'].map((flower, index) => <button key={flower} className={watered.includes(index) ? 'watered' : ''} onClick={() => waterFlower(index)}><span>{flower}</span>{watered.includes(index) ? '반짝반짝!' : '💧 물주기'}</button>)}</div></div>}
-        {building.name === '별빛우체국' && <div className="room-play post-play"><img src="/durikong.png" alt="우체부 두리콩" /><button className={`letter ${letterOpened ? 'opened' : ''}`} onClick={openLetter}>{letterOpened ? <><span>💌</span><strong>“스스로 정리해서 정말 멋졌어!”</strong><small>오늘의 칭찬을 앨범에 간직했어요.</small></> : <><span>✉️</span><strong>도착한 칭찬 편지</strong><small>눌러서 열어 보세요</small></>}</button></div>}
+        {building.name === '별빛우체국' && <div className="room-play post-play"><div className="post-tabs"><button className={postMode === 'read' ? 'active' : ''} onClick={() => setPostMode('read')}>💌 받은 편지</button><button className={postMode === 'write' ? 'active' : ''} onClick={() => setPostMode('write')}>🖍️ 편지 보내기</button></div>{postMode === 'read' ? <div className="post-reader"><img src="/durikong.png" alt="우체부 두리콩" /><button className={`letter ${letterOpened ? 'opened' : ''}`} onClick={openLetter}>{letterOpened ? <><span>💌</span><strong>“스스로 정리해서 정말 멋졌어!”</strong><small>오늘의 칭찬을 앨범에 간직했어요.</small></> : <><span>✉️</span><strong>도착한 칭찬 편지</strong><small>눌러서 열어 보세요</small></>}</button>{sentLetters.length > 0 && <p className="sent-count">📮 보낸 손편지 {sentLetters.length}통</p>}</div> : <div className="letter-composer"><DrawingPad onDraw={setDrawingData} /><textarea value={letterText} onChange={(event) => setLetterText(event.target.value)} maxLength={100} placeholder="엄마 아빠에게 전하고 싶은 말을 직접 써 보세요…" aria-label="손편지 내용" /><button className="send-letter" onClick={sendLetter}>두리콩에게 전해주기 💌</button></div>}</div>}
         <p className="room-caption">{building.message}</p>
       </section></div>}
     </main>
