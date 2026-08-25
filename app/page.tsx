@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type Tab = '마을' | '친구' | '꾸미기' | '앨범';
 
 const residents = [
-  { name: '포포', emoji: '🐑', color: 'mint', activity: '구름정원에 물 주는 중' },
-  { name: '모모몽', emoji: '🐰', color: 'peach', activity: '광장에서 기다리는 중' },
-  { name: '두리콩', emoji: '🐶', color: 'butter', activity: '칭찬 편지를 배달하는 중' },
-  { name: '루루별', emoji: '🐱', color: 'lavender', activity: '별빛을 그리고 있는 중' },
+  { name: '포포', portrait: 'p1', color: 'mint', activity: '구름정원에 물 주는 중' },
+  { name: '모모몽', portrait: 'p0', color: 'peach', activity: '광장에서 기다리는 중' },
+  { name: '두리콩', portrait: 'p2', color: 'butter', activity: '칭찬 편지를 배달하는 중' },
+  { name: '루루별', portrait: 'p3', color: 'lavender', activity: '별빛을 그리고 있는 중' },
 ];
 
 const items = [
@@ -31,6 +31,13 @@ export default function Home() {
   const [notice, setNotice] = useState('');
   const resident = residents.find((entry) => entry.name === selected) ?? residents[1];
 
+  useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  function selectTab(nextTab: Tab) {
+    setTab(nextTab); setNotice('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function buy(item: (typeof items)[number]) {
     if (owned.includes(item.id)) return setNotice(`${item.name}은 이미 우리 마을에 있어요!`);
     if (tokens < item.cost) return setNotice(`토큰이 부족해요. ${item.cost}개가 필요해요.`);
@@ -52,15 +59,13 @@ export default function Home() {
         </header>
 
         {tab === '마을' && <section className="home-grid">
-          <div className="village-card">
-            <div className="locked-clouds" aria-hidden="true">☁️　🔒　☁️</div>
-            <span className="stage-pill">작은 언덕 · 1단계</span><h2>우리 마을이 자라고 있어요!</h2>
-            <div className="buildings">
-              <button onClick={() => setNotice('포포가 구름정원에 물을 주고 있어요!')}><span>🌳</span>구름정원</button>
-              <button onClick={() => setNotice('모모몽의 집에 별빛이 반짝여요!')}><span>🏡</span>모모몽의 집</button>
-              <button onClick={() => setNotice('두리콩이 새 편지를 가져왔어요!')}><span>📮</span>별빛우체국</button>
-            </div>
-            <div className="plaza">{residents.map((entry) => <button key={entry.name} className={`resident ${entry.color} ${selected === entry.name ? 'selected' : ''}`} onClick={() => setSelected(entry.name)} aria-pressed={selected === entry.name}><span>{entry.emoji}</span>{entry.name}</button>)}</div>
+          <div className="village-card illustrated">
+            <img src="/village-board.png" alt="모모몽과 포포, 두리콩, 루루별이 함께 있는 포근별 마을" />
+            <div className="village-heading"><span className="stage-pill">작은 언덕 · 1단계</span><h2>우리 마을이 자라고 있어요!</h2></div>
+            <button className="map-hit house-hit" aria-label="모모몽의 집" onClick={() => setNotice('모모몽의 집에 별빛이 반짝여요!')} />
+            <button className="map-hit garden-hit" aria-label="구름정원" onClick={() => setNotice('포포가 구름정원에 물을 주고 있어요!')} />
+            <button className="map-hit post-hit" aria-label="별빛우체국" onClick={() => setNotice('두리콩이 새 편지를 가져왔어요!')} />
+            <div className="character-pills">{residents.map((entry) => <button key={entry.name} className={selected === entry.name ? 'selected' : ''} onClick={() => setSelected(entry.name)} aria-pressed={selected === entry.name}>{entry.name}</button>)}</div>
             <div className="speech"><strong>{resident?.name}</strong><span>{resident?.activity}</span></div>
           </div>
           <aside className="side-panel">
@@ -70,13 +75,13 @@ export default function Home() {
           </aside>
         </section>}
 
-        {tab === '친구' && <section className="content-card"><p className="eyebrow">포근별 마을</p><h2>친구</h2><div className="card-grid">{residents.map((entry) => <button key={entry.name} className={`friend-card ${entry.color}`} onClick={() => setNotice(entry.activity)}><span>{entry.emoji}</span><strong>{entry.name}</strong><p>{entry.activity}</p></button>)}</div></section>}
+        {tab === '친구' && <section className="content-card"><p className="eyebrow">포근별 마을</p><h2>친구</h2><div className="card-grid">{residents.map((entry) => <button key={entry.name} className={`friend-card ${entry.color}`} onClick={() => setNotice(entry.activity)}><span className={`portrait ${entry.portrait}`} /><strong>{entry.name}</strong><p>{entry.activity}</p></button>)}</div></section>}
 
         {tab === '꾸미기' && <section className="content-card"><p className="eyebrow">칭찬 토큰으로 꾸며요</p><h2>꾸미기</h2><div className="card-grid items">{items.map((item) => <button key={item.id} className="item-card" onClick={() => buy(item)}><span>{item.emoji}</span><strong>{item.name}</strong><em>{owned.includes(item.id) ? '보유 중' : `⭐ ${item.cost}`}</em></button>)}</div></section>}
 
         {tab === '앨범' && <section className="content-card album"><p className="eyebrow">우리 가족의 반짝이는 기록</p><h2>칭찬 앨범</h2><article><span>💌</span><div><small>정리 칭찬</small><p>스스로 장난감을 정리해서 정말 멋졌어!</p></div><strong>+3</strong></article>{owned.map((id) => { const item = items.find((entry) => entry.id === id); return item ? <article key={id}><span>{item.emoji}</span><div><small>마을 꾸미기</small><p>{item.name}을 마을에 놓았어요.</p></div><strong className="spent">-{item.cost}</strong></article> : null; })}</section>}
 
-        <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} onClick={() => { setTab(entry.name); setNotice(''); }}><span>{entry.emoji}</span>{entry.name}</button>)}</nav>
+        <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} onClick={() => selectTab(entry.name)}><span>{entry.emoji}</span>{entry.name}</button>)}</nav>
       </div>
       {notice && <button className="toast" onClick={() => setNotice('')} aria-live="polite">{notice}<span>×</span></button>}
     </main>
