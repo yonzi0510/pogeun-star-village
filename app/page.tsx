@@ -26,8 +26,9 @@ const tabs: { name: Tab; emoji: string }[] = [
 function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
+  const previous = useRef({ x: 0, y: 0 });
   const [color, setColor] = useState('#ff7895');
-  const [finish, setFinish] = useState<'normal' | 'pearl' | 'glitter'>('normal');
+  const [tool, setTool] = useState<'marker' | 'pencil' | 'brush' | 'airbrush' | 'pearl' | 'glitter'>('marker');
   const colors = [
     ['#ff7895','딸기 분홍'],['#ef4444','사과 빨강'],['#ff8c42','귤 주황'],['#ffd93d','레몬 노랑'],
     ['#9bd35a','연두'],['#38b878','초록'],['#55d6c2','민트'],['#5bc0eb','하늘'],['#3f72d8','파랑'],
@@ -42,22 +43,26 @@ function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
   function start(event: PointerEvent<HTMLCanvasElement>) {
     event.preventDefault(); drawing.current = true; event.currentTarget.setPointerCapture(event.pointerId);
     const context = event.currentTarget.getContext('2d')!; const p = point(event);
-    context.beginPath(); context.moveTo(p.x, p.y);
+    previous.current = p; context.beginPath(); context.moveTo(p.x, p.y);
   }
   function draw(event: PointerEvent<HTMLCanvasElement>) {
     if (!drawing.current) return; event.preventDefault(); const context = event.currentTarget.getContext('2d')!; const p = point(event);
     let stroke: string | CanvasGradient = color;
     if (color === 'rainbow') { const gradient = context.createLinearGradient(0, 0, event.currentTarget.width, 0); ['#ff5b73','#ff9c43','#ffe04b','#55c878','#51bce8','#8768d8','#e879c6'].forEach((entry, index) => gradient.addColorStop(index / 6, entry)); stroke = gradient; }
-    if (finish === 'pearl') { const pearl = context.createLinearGradient(p.x - 28, p.y - 20, p.x + 28, p.y + 20); pearl.addColorStop(0, color === 'rainbow' ? '#f28bc8' : color); pearl.addColorStop(.36, '#fff7ff'); pearl.addColorStop(.58, '#bdefff'); pearl.addColorStop(1, color === 'rainbow' ? '#8f75df' : color); stroke = pearl; }
-    context.strokeStyle = stroke; context.lineWidth = finish === 'glitter' ? 5 : finish === 'pearl' ? 9 : 7; context.lineCap = 'round'; context.lineJoin = 'round'; context.lineTo(p.x, p.y); context.stroke();
-    if (finish === 'pearl') { context.globalAlpha = .38; context.strokeStyle = '#fff'; context.lineWidth = 2; context.stroke(); context.globalAlpha = 1; }
-    if (finish === 'glitter') { for (let index = 0; index < 8; index += 1) { const size = 1.5 + Math.random() * 3; context.beginPath(); context.fillStyle = index % 2 ? '#fff' : color === 'rainbow' ? '#ffd34e' : color; context.arc(p.x + (Math.random() - .5) * 25, p.y + (Math.random() - .5) * 25, size, 0, Math.PI * 2); context.fill(); } }
+    if (tool === 'airbrush') {
+      for (let index = 0; index < 28; index += 1) { const angle = Math.random() * Math.PI * 2; const radius = Math.random() * 18; context.beginPath(); context.globalAlpha = .12 + Math.random() * .18; context.fillStyle = color === 'rainbow' ? ['#ff7895','#ffd93d','#55d6c2','#7755cc'][index % 4] : color; context.arc(p.x + Math.cos(angle) * radius, p.y + Math.sin(angle) * radius, 1.5 + Math.random() * 2.5, 0, Math.PI * 2); context.fill(); }
+    } else {
+      context.globalAlpha = tool === 'pencil' ? .72 : 1; context.strokeStyle = stroke; context.lineWidth = tool === 'pencil' ? 3 : tool === 'brush' ? 13 : tool === 'pearl' ? 14 : tool === 'glitter' ? 7 : 8; context.lineCap = 'round'; context.lineJoin = 'round'; context.beginPath(); context.moveTo(previous.current.x, previous.current.y); context.lineTo(p.x, p.y); context.stroke();
+      if (tool === 'pearl') { for (let index = 0; index < 13; index += 1) { context.beginPath(); context.globalAlpha = .45 + Math.random() * .4; context.fillStyle = '#fff'; context.arc(p.x + (Math.random() - .5) * 11, p.y + (Math.random() - .5) * 11, .5 + Math.random() * 1.35, 0, Math.PI * 2); context.fill(); } }
+      if (tool === 'glitter') { for (let index = 0; index < 8; index += 1) { context.beginPath(); context.globalAlpha = .85; context.fillStyle = index % 2 ? '#fff' : color === 'rainbow' ? '#ffd34e' : color; context.arc(p.x + (Math.random() - .5) * 25, p.y + (Math.random() - .5) * 25, 1.5 + Math.random() * 3, 0, Math.PI * 2); context.fill(); } }
+    }
+    context.globalAlpha = 1; previous.current = p;
     onDraw(event.currentTarget.toDataURL('image/png'));
   }
   function clear() {
     const canvas = canvasRef.current!; canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height); onDraw('');
   }
-  return <div className="drawing-pad"><div className="drawing-title"><strong>🖍️ 알록달록 그림 편지</strong><button className="eraser" onClick={clear}>모두 지우기</button></div><div className="drawing-tools color-tools"><span>색</span>{colors.map(([entry, label]) => <button key={entry} className={color === entry ? 'chosen' : ''} style={{ background: entry === 'rainbow' ? 'linear-gradient(135deg,#ff5b73,#ffe04b,#55c878,#51bce8,#8768d8,#e879c6)' : entry }} onClick={() => setColor(entry)} aria-label={label} title={label} />)}</div><div className="finish-tools"><span>느낌</span><button className={finish === 'normal' ? 'chosen' : ''} onClick={() => setFinish('normal')}>일반</button><button className={`pearl-finish ${finish === 'pearl' ? 'chosen' : ''}`} onClick={() => setFinish('pearl')}>진주광 펄</button><button className={`glitter-finish ${finish === 'glitter' ? 'chosen' : ''}`} onClick={() => setFinish('glitter')}>✨ 글리터</button></div><canvas ref={canvasRef} width="520" height="260" onPointerDown={start} onPointerMove={draw} onPointerUp={() => drawing.current = false} onPointerCancel={() => drawing.current = false} aria-label="손가락으로 그림을 그리는 편지지" /></div>;
+  return <div className="drawing-pad"><div className="drawing-title"><strong>🖍️ 알록달록 그림 편지</strong><button className="eraser" onClick={clear}>모두 지우기</button></div><div className="drawing-tools color-tools"><span>색</span>{colors.map(([entry, label]) => <button key={entry} className={color === entry ? 'chosen' : ''} style={{ background: entry === 'rainbow' ? 'linear-gradient(135deg,#ff5b73,#ffe04b,#55c878,#51bce8,#8768d8,#e879c6)' : entry }} onClick={() => setColor(entry)} aria-label={label} title={label} />)}</div><div className="finish-tools tool-tools"><span>도구</span><button className={tool === 'marker' ? 'chosen' : ''} onClick={() => setTool('marker')}>🖍️ 매직</button><button className={tool === 'pencil' ? 'chosen' : ''} onClick={() => setTool('pencil')}>✏️ 연필</button><button className={tool === 'brush' ? 'chosen' : ''} onClick={() => setTool('brush')}>🖌️ 붓</button><button className={tool === 'airbrush' ? 'chosen' : ''} onClick={() => setTool('airbrush')}>☁️ 에어</button><button className={`pearl-finish ${tool === 'pearl' ? 'chosen' : ''}`} onClick={() => setTool('pearl')}>🫧 펄 크레용</button><button className={`glitter-finish ${tool === 'glitter' ? 'chosen' : ''}`} onClick={() => setTool('glitter')}>✨ 글리터</button></div><canvas ref={canvasRef} width="520" height="260" onPointerDown={start} onPointerMove={draw} onPointerUp={() => drawing.current = false} onPointerCancel={() => drawing.current = false} aria-label="손가락으로 그림을 그리는 편지지" /></div>;
 }
 
 export default function Home() {
