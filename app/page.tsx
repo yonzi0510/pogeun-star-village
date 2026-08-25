@@ -76,6 +76,8 @@ export default function Home() {
   const [notice, setNotice] = useState('');
   const [gameMinutes, setGameMinutes] = useState(8 * 60 + 10);
   const [building, setBuilding] = useState<{ name: string; icon: string; message: string } | null>(null);
+  const [roomPosition, setRoomPosition] = useState({ x: 50, y: 78 });
+  const roomActionTimer = useRef<number | null>(null);
   const [watered, setWatered] = useState<number[]>([]);
   const [letterOpened, setLetterOpened] = useState(false);
   const [postMode, setPostMode] = useState<'read' | 'write'>('read');
@@ -139,6 +141,13 @@ export default function Home() {
   }, []);
   useEffect(() => {
     function moveWithKeys(event: KeyboardEvent) {
+      if (building) {
+        const delta = event.key === 'ArrowLeft' ? [-3, 0] : event.key === 'ArrowRight' ? [3, 0] : event.key === 'ArrowUp' ? [0, -3] : event.key === 'ArrowDown' ? [0, 3] : null;
+        if (!delta) return;
+        event.preventDefault();
+        setRoomPosition((position) => ({ x: Math.max(8, Math.min(92, position.x + delta[0])), y: Math.max(24, Math.min(86, position.y + delta[1])) }));
+        return;
+      }
       const delta = event.key === 'ArrowLeft' ? [-3, 0] : event.key === 'ArrowRight' ? [3, 0] : event.key === 'ArrowUp' ? [0, -3] : event.key === 'ArrowDown' ? [0, 3] : null;
       if (!delta) return;
       event.preventDefault();
@@ -146,7 +155,8 @@ export default function Home() {
     }
     window.addEventListener('keydown', moveWithKeys);
     return () => window.removeEventListener('keydown', moveWithKeys);
-  }, []);
+  }, [building]);
+  useEffect(() => () => { if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current); }, []);
 
   const timeLabel = `${String(Math.floor(gameMinutes / 60)).padStart(2, '0')}:${String(gameMinutes % 60).padStart(2, '0')}`;
 
@@ -156,6 +166,27 @@ export default function Home() {
     const y = Math.max(42, Math.min(84, ((event.clientY - rect.top) / rect.height) * 100));
     setPositions((current) => current.map((position, index) => index === 1 ? { x, y } : position));
     setSelected('모모몽');
+  }
+
+  function enterBuilding(nextBuilding: { name: string; icon: string; message: string }) {
+    setRoomPosition({ x: 50, y: 78 });
+    setPostMode('read');
+    setBuilding(nextBuilding);
+    setNotice(`${nextBuilding.name}에 들어왔어요. 바닥을 눌러 걸어 보세요!`);
+  }
+
+  function moveInside(event: PointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setRoomPosition({
+      x: Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(24, Math.min(86, ((event.clientY - rect.top) / rect.height) * 100)),
+    });
+  }
+
+  function walkTo(x: number, y: number, action: () => void) {
+    if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current);
+    setRoomPosition({ x, y });
+    roomActionTimer.current = window.setTimeout(action, 620);
   }
 
   function talkTo(name: string, index: number, activity: string) {
@@ -179,13 +210,15 @@ export default function Home() {
   }
 
   function waterFlower(index: number) {
-    if (watered.includes(index)) return setNotice('이 꽃은 벌써 촉촉해요!');
-    const next = [...watered, index];
-    setWatered(next);
-    if (next.length === 3) {
-      setTokens((value) => value + 3);
-      setNotice('정원 임무 완료! 포포가 칭찬 토큰 3개를 주었어요.');
-    } else setNotice(`꽃에 물을 주었어요! ${next.length}/3`);
+    setWatered((current) => {
+      if (current.includes(index)) { setNotice('이 꽃은 벌써 촉촉해요!'); return current; }
+      const next = [...current, index];
+      if (next.length === 3) {
+        setTokens((value) => value + 3);
+        setNotice('정원 임무 완료! 포포가 칭찬 토큰 3개를 주었어요.');
+      } else setNotice(`꽃에 직접 물을 주었어요! ${next.length}/3`);
+      return next;
+    });
   }
 
   function openLetter() {
@@ -193,7 +226,7 @@ export default function Home() {
       setLetterOpened(true);
       setTokens((value) => value + 3);
       setNotice('칭찬 편지를 읽고 토큰 3개를 받았어요!');
-    }
+    } else setNotice('“스스로 정리해서 정말 멋졌어!” 오늘의 칭찬을 다시 읽었어요.');
   }
 
   function sendLetter() {
@@ -265,7 +298,7 @@ export default function Home() {
   return (
     <main className={`game-shell ${allowPortrait ? 'portrait-allowed' : ''}`}>
       <div className="sky-decor" aria-hidden="true"><span>☁️</span><span>✨</span><span>☁️</span></div>
-      <div className="game-frame">
+      <div className="game-frame" aria-hidden={building ? true : undefined}>
         <header className="topbar">
           <div><p className="eyebrow">칭찬이 별빛이 되는 곳</p><h1>포근별 마을 <span>✨</span></h1></div>
           <div className="stats" aria-label="게임 재화">
@@ -280,9 +313,9 @@ export default function Home() {
             <img src="/village-map.png" alt="산책할 수 있는 포근별 마을 광장" />
             <div className="map-walk-layer" onPointerDown={movePlayer} role="application" aria-label="눌러서 모모몽을 이동시키는 마을 지도" />
             <div className="village-heading"><span className="stage-pill">작은 언덕 · 1단계</span><h2>우리 마을이 자라고 있어요!</h2></div>
-            <button className="map-hit house-hit" aria-label="모모몽의 집에 들어가기" onClick={() => setBuilding({ name: '모모몽의 집', icon: '🏡', message: '포근한 침대와 장난감 상자가 있어요. 앞으로 가구를 직접 배치할 수 있게 됩니다.' })} />
-            <button className="map-hit garden-hit" aria-label="구름정원에 들어가기" onClick={() => setBuilding({ name: '구름정원', icon: '🌳', message: '포포와 꽃에 물을 주고 별씨앗을 심을 수 있는 정원이에요.' })} />
-            <button className="map-hit post-hit" aria-label="별빛우체국에 들어가기" onClick={() => setBuilding({ name: '별빛우체국', icon: '📮', message: '두리콩이 가족의 칭찬 편지를 보관하고 있어요.' })} />
+            <button className="map-hit house-hit" aria-label="모모몽의 집에 들어가기" onClick={() => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다닐 수 있는 포근한 집이에요.' })} />
+            <button className="map-hit garden-hit" aria-label="구름정원에 들어가기" onClick={() => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 꽃에 직접 물을 주는 정원이에요.' })} />
+            <button className="map-hit post-hit" aria-label="별빛우체국에 들어가기" onClick={() => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지함과 그림 책상까지 직접 걸어가는 우체국이에요.' })} />
             <div className="moving-layer">{residents.map((entry, index) => <button key={entry.name} className={`moving-character ${index === 1 ? 'player' : 'npc'} ${selected === entry.name ? 'selected' : ''}`} style={{ left: `${positions[index]?.x ?? 50}%`, top: `${positions[index]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); index === 1 ? setNotice('지도를 눌러 모모몽을 움직여 보세요!') : talkTo(entry.name, index, entry.activity); }} aria-label={index === 1 ? '내 캐릭터 모모몽' : `${entry.name}에게 다가가 말 걸기`}><img src={entry.sprite} alt="" /><span>{index === 1 ? '내 모모몽' : entry.name}</span></button>)}</div>
             <div className="move-guide">지도를 눌러 이동 · 방향키도 가능</div>
             <div className="speech"><strong>{resident?.name}</strong><span>{resident?.activity}</span></div>
@@ -305,13 +338,31 @@ export default function Home() {
         <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} aria-current={tab === entry.name ? 'page' : undefined} onClick={() => selectTab(entry.name)}><span className={`menu-icon ${entry.icon}`} aria-hidden="true" />{entry.name}</button>)}</nav>
       </div>
       {notice && <button className="toast" onClick={() => setNotice('')} aria-live="polite">{notice}<span>×</span></button>}
-      {building && <div className="modal-backdrop" role="presentation"><section className={`building-modal room ${building.name === '모모몽의 집' ? 'home-room' : building.name === '구름정원' ? 'garden-room' : 'post-room'}`} role="dialog" aria-modal="true" aria-label={building.name}>
-        <header className="room-header"><div><p className="eyebrow">건물에 들어왔어요</p><h2>{building.icon} {building.name}</h2></div><button className="room-close" onClick={() => setBuilding(null)} aria-label="마을로 돌아가기">← 마을로</button></header>
-        {building.name === '모모몽의 집' && <div className="room-play home-play"><div className="room-window">☀️<span>☁️</span></div><div className="bed">☁️<strong>포근 침대</strong></div><div className="placed-items">{owned.length ? owned.map((id) => { const item = items.find((entry) => entry.id === id); return item && <button key={id} onClick={() => setNotice(`${item.name}을(를) 예쁘게 놓았어요!`)}><span>{item.emoji}</span>{item.name}</button>; }) : <p>꾸미기 상점에서 가구를 사면<br />이 방에 나타나요!</p>}</div><img src="/momomong.png" alt="집 안의 모모몽" /></div>}
-        {building.name === '구름정원' && <div className="room-play garden-play"><p className="quest-bubble">포포: 꽃 세 송이에 물을 주면<br /><strong>칭찬 토큰 3개</strong>를 줄게!</p><img src="/popo.png" alt="정원사 포포" /> <div className="flower-row">{['🌷','🌼','🌸'].map((flower, index) => <button key={flower} className={watered.includes(index) ? 'watered' : ''} onClick={() => waterFlower(index)}><span>{flower}</span>{watered.includes(index) ? '반짝반짝!' : '💧 물주기'}</button>)}</div></div>}
-        {building.name === '별빛우체국' && <div className="room-play post-play"><div className="post-tabs"><button className={postMode === 'read' ? 'active' : ''} onClick={() => setPostMode('read')}>💌 받은 편지</button><button className={postMode === 'write' ? 'active' : ''} onClick={() => setPostMode('write')}>🖍️ 편지 보내기</button></div>{postMode === 'read' ? <div className="post-reader"><img src="/durikong.png" alt="우체부 두리콩" /><button className={`letter ${letterOpened ? 'opened' : ''}`} onClick={openLetter}>{letterOpened ? <><span>💌</span><strong>“스스로 정리해서 정말 멋졌어!”</strong><small>오늘의 칭찬을 앨범에 간직했어요.</small></> : <><span>✉️</span><strong>도착한 칭찬 편지</strong><small>눌러서 열어 보세요</small></>}</button>{sentLetters.length > 0 && <p className="sent-count">📮 보낸 손편지 {sentLetters.length}통</p>}</div> : <div className="letter-composer"><DrawingPad onDraw={setDrawingData} /><textarea value={letterText} onChange={(event) => setLetterText(event.target.value)} maxLength={100} placeholder="엄마 아빠에게 전하고 싶은 말을 직접 써 보세요…" aria-label="손편지 내용" /><button className="send-letter" onClick={sendLetter}>두리콩에게 전해주기 💌</button></div>}</div>}
-        <p className="room-caption">{building.message}</p>
-      </section></div>}
+      {building && <section className={`room-world ${building.name === '모모몽의 집' ? 'home-world' : building.name === '구름정원' ? 'garden-world' : 'post-world'}`} role="dialog" aria-modal="true" aria-label={building.name}>
+        <img className="room-world-art" src={building.name === '모모몽의 집' ? '/room-home-v2.png' : building.name === '구름정원' ? '/room-garden-v2.png' : '/room-post-v2.png'} alt={`${building.name} 안의 걸어 다닐 수 있는 공간`} />
+        <div className="room-walk-layer" onPointerDown={moveInside} role="application" aria-label={`${building.name} 바닥을 눌러 모모몽 이동`} />
+        <header className="room-world-hud"><div><small>직접 걸어 다니는 공간</small><strong>{building.name}</strong></div><p>{building.message}</p><button onClick={() => { if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current); setPostMode('read'); setBuilding(null); }} aria-label="건물에서 나가 마을로 돌아가기">마을로 나가기</button></header>
+        <img className="room-player" src="/momomong.png" alt="움직이는 내 모모몽" style={{ left: `${roomPosition.x}%`, top: `${roomPosition.y}%` }} />
+        {building.name === '모모몽의 집' && <>
+          <button className="world-hotspot home-bed-spot" onClick={(event) => { event.stopPropagation(); walkTo(23, 55, () => setNotice('구름 침대가 폭신폭신해요!')); }}><span>구름 침대</span></button>
+          <button className="world-hotspot home-toy-spot" onClick={(event) => { event.stopPropagation(); walkTo(61, 35, () => setNotice('장난감 친구들이 가지런히 기다리고 있어요!')); }}><span>장난감 선반</span></button>
+          <button className="world-hotspot home-sofa-spot" onClick={(event) => { event.stopPropagation(); walkTo(82, 55, () => setNotice('리본 소파에서 잠깐 쉬었어요!')); }}><span>리본 소파</span></button>
+          <div className="room-owned-tray">{owned.length ? owned.map((id) => { const item = items.find((entry) => entry.id === id); return item && <button key={id} onClick={() => setNotice(`${item.name}도 집 안에 예쁘게 놓여 있어요!`)}>{item.name}</button>; }) : <span>바닥을 눌러 집 안을 걸어 보세요</span>}</div>
+        </>}
+        {building.name === '구름정원' && <>
+          <img className="room-npc garden-npc" src="/popo.png" alt="정원에서 기다리는 포포" />
+          <div className="room-quest-bubble"><strong>포포의 정원 임무</strong><span>꽃밭 세 곳까지 걸어가 직접 물을 주세요 · 보상 토큰 3개</span></div>
+          {[{ x: 77, y: 36, label: '분홍 튤립' }, { x: 80, y: 52, label: '노란 데이지' }, { x: 79, y: 69, label: '벚꽃 화단' }].map((flower, index) => <button key={flower.label} className={`world-hotspot flower-spot flower-${index} ${watered.includes(index) ? 'watered' : ''}`} onClick={(event) => { event.stopPropagation(); walkTo(flower.x - 9, flower.y + 7, () => waterFlower(index)); }} aria-label={`${flower.label}에 물주기`}><span>{watered.includes(index) ? '물을 줬어요' : `${flower.label} 물주기`}</span></button>)}
+        </>}
+        {building.name === '별빛우체국' && <>
+          <img className="room-npc post-npc" src="/durikong.png" alt="우체국의 두리콩" />
+          <button className="world-hotspot post-mail-spot" onClick={(event) => { event.stopPropagation(); walkTo(25, 58, openLetter); }}><span>{letterOpened ? '오늘의 칭찬 편지' : '도착한 편지 열기'}</span></button>
+          <button className="world-hotspot post-write-spot" onClick={(event) => { event.stopPropagation(); walkTo(76, 57, () => setPostMode('write')); }}><span>그림 손편지 쓰기</span></button>
+          {sentLetters.length > 0 && <div className="room-sent-count">보낸 손편지 {sentLetters.length}통</div>}
+          {postMode === 'write' && <div className="room-action-panel"><header><strong>알록달록 그림 손편지</strong><button onClick={() => setPostMode('read')}>닫기</button></header><div className="letter-composer"><DrawingPad onDraw={setDrawingData} /><textarea value={letterText} onChange={(event) => setLetterText(event.target.value)} maxLength={100} placeholder="엄마 아빠에게 전하고 싶은 말을 직접 써 보세요…" aria-label="손편지 내용" /><button className="send-letter" onClick={sendLetter}>두리콩에게 전해주기</button></div></div>}
+        </>}
+        <div className="room-move-guide">바닥을 눌러 이동 · 반짝이는 장소에 가까이 가기</div>
+      </section>}
       <div className={`rotate-device ${allowPortrait ? 'dismissed' : ''}`} role="dialog" aria-label="가로 화면 권장 안내"><div className="rotate-phone" aria-hidden="true"><i /></div><h2>가로 화면으로 즐겨요</h2><p>포근별 마을은 가로 화면에서 가장 넓고 편하게 움직일 수 있어요.</p><button onClick={requestLandscape}>가로 전체화면 시작</button><button className="portrait-continue" onClick={() => setAllowPortrait(true)}>세로 화면으로 계속</button></div>
     </main>
   );
