@@ -1,0 +1,10 @@
+{
+  "name": "포근별 마을",
+  "short_name": "포근별 마을",
+  "description": "칭찬이 별빛이 되어 자라나는 우리 가족의 마을",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#bfeaff",
+  "theme_color": "#ff9aae"
+}

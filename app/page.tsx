@@ -66,6 +66,7 @@ function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
 }
 
 export default function Home() {
+  const [allowPortrait, setAllowPortrait] = useState(false);
   const [tab, setTab] = useState<Tab>('마을');
   const [selected, setSelected] = useState('모모몽');
   const [tokens, setTokens] = useState(24);
@@ -223,8 +224,14 @@ export default function Home() {
     setNotice(`${activePet}에게 ${action}! 애정도가 올랐어요 💗`);
   }
 
+  async function requestLandscape() {
+    try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.(); } catch { /* browser may keep its normal chrome */ }
+    try { await (screen.orientation as ScreenOrientation & { lock?: (mode: string) => Promise<void> }).lock?.('landscape'); } catch { /* orientation lock is not supported in every browser */ }
+    setAllowPortrait(true);
+  }
+
   return (
-    <main className="game-shell">
+    <main className={`game-shell ${allowPortrait ? 'portrait-allowed' : ''}`}>
       <div className="sky-decor" aria-hidden="true"><span>☁️</span><span>✨</span><span>☁️</span></div>
       <div className="game-frame">
         <header className="topbar">
@@ -273,6 +280,7 @@ export default function Home() {
         {building.name === '별빛우체국' && <div className="room-play post-play"><div className="post-tabs"><button className={postMode === 'read' ? 'active' : ''} onClick={() => setPostMode('read')}>💌 받은 편지</button><button className={postMode === 'write' ? 'active' : ''} onClick={() => setPostMode('write')}>🖍️ 편지 보내기</button></div>{postMode === 'read' ? <div className="post-reader"><img src="/durikong.png" alt="우체부 두리콩" /><button className={`letter ${letterOpened ? 'opened' : ''}`} onClick={openLetter}>{letterOpened ? <><span>💌</span><strong>“스스로 정리해서 정말 멋졌어!”</strong><small>오늘의 칭찬을 앨범에 간직했어요.</small></> : <><span>✉️</span><strong>도착한 칭찬 편지</strong><small>눌러서 열어 보세요</small></>}</button>{sentLetters.length > 0 && <p className="sent-count">📮 보낸 손편지 {sentLetters.length}통</p>}</div> : <div className="letter-composer"><DrawingPad onDraw={setDrawingData} /><textarea value={letterText} onChange={(event) => setLetterText(event.target.value)} maxLength={100} placeholder="엄마 아빠에게 전하고 싶은 말을 직접 써 보세요…" aria-label="손편지 내용" /><button className="send-letter" onClick={sendLetter}>두리콩에게 전해주기 💌</button></div>}</div>}
         <p className="room-caption">{building.message}</p>
       </section></div>}
+      <div className={`rotate-device ${allowPortrait ? 'dismissed' : ''}`} role="dialog" aria-label="가로 화면 권장 안내"><div className="rotate-phone" aria-hidden="true"><i /></div><h2>가로 화면으로 즐겨요</h2><p>포근별 마을은 가로 화면에서 가장 넓고 편하게 움직일 수 있어요.</p><button onClick={requestLandscape}>가로 전체화면 시작</button><button className="portrait-continue" onClick={() => setAllowPortrait(true)}>세로 화면으로 계속</button></div>
     </main>
   );
 }
