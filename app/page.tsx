@@ -31,6 +31,8 @@ export default function Home() {
   const [notice, setNotice] = useState('');
   const [gameMinutes, setGameMinutes] = useState(8 * 60 + 10);
   const [building, setBuilding] = useState<{ name: string; icon: string; message: string } | null>(null);
+  const [watered, setWatered] = useState<number[]>([]);
+  const [letterOpened, setLetterOpened] = useState(false);
   const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 45, y: 72 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
   const resident = residents.find((entry) => entry.name === selected) ?? residents[1];
 
@@ -87,6 +89,24 @@ export default function Home() {
     setNotice(`${item.name}을 마을에 놓았어요!`);
   }
 
+  function waterFlower(index: number) {
+    if (watered.includes(index)) return setNotice('이 꽃은 벌써 촉촉해요!');
+    const next = [...watered, index];
+    setWatered(next);
+    if (next.length === 3) {
+      setTokens((value) => value + 3);
+      setNotice('정원 임무 완료! 포포가 칭찬 토큰 3개를 주었어요.');
+    } else setNotice(`꽃에 물을 주었어요! ${next.length}/3`);
+  }
+
+  function openLetter() {
+    if (!letterOpened) {
+      setLetterOpened(true);
+      setTokens((value) => value + 3);
+      setNotice('칭찬 편지를 읽고 토큰 3개를 받았어요!');
+    }
+  }
+
   return (
     <main className="game-shell">
       <div className="sky-decor" aria-hidden="true"><span>☁️</span><span>✨</span><span>☁️</span></div>
@@ -128,7 +148,13 @@ export default function Home() {
         <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} onClick={() => selectTab(entry.name)}><span>{entry.emoji}</span>{entry.name}</button>)}</nav>
       </div>
       {notice && <button className="toast" onClick={() => setNotice('')} aria-live="polite">{notice}<span>×</span></button>}
-      {building && <div className="modal-backdrop" role="presentation" onClick={() => setBuilding(null)}><section className="building-modal" role="dialog" aria-modal="true" aria-label={building.name} onClick={(event) => event.stopPropagation()}><span>{building.icon}</span><p className="eyebrow">건물에 들어왔어요</p><h2>{building.name}</h2><p>{building.message}</p><button onClick={() => setBuilding(null)}>마을로 돌아가기</button></section></div>}
+      {building && <div className="modal-backdrop" role="presentation"><section className={`building-modal room ${building.name === '모모몽의 집' ? 'home-room' : building.name === '구름정원' ? 'garden-room' : 'post-room'}`} role="dialog" aria-modal="true" aria-label={building.name}>
+        <header className="room-header"><div><p className="eyebrow">건물에 들어왔어요</p><h2>{building.icon} {building.name}</h2></div><button className="room-close" onClick={() => setBuilding(null)} aria-label="마을로 돌아가기">← 마을로</button></header>
+        {building.name === '모모몽의 집' && <div className="room-play home-play"><div className="room-window">☀️<span>☁️</span></div><div className="bed">☁️<strong>포근 침대</strong></div><div className="placed-items">{owned.length ? owned.map((id) => { const item = items.find((entry) => entry.id === id); return item && <button key={id} onClick={() => setNotice(`${item.name}을(를) 예쁘게 놓았어요!`)}><span>{item.emoji}</span>{item.name}</button>; }) : <p>꾸미기 상점에서 가구를 사면<br />이 방에 나타나요!</p>}</div><img src="/momomong.png" alt="집 안의 모모몽" /></div>}
+        {building.name === '구름정원' && <div className="room-play garden-play"><p className="quest-bubble">포포: 꽃 세 송이에 물을 주면<br /><strong>칭찬 토큰 3개</strong>를 줄게!</p><img src="/popo.png" alt="정원사 포포" /> <div className="flower-row">{['🌷','🌼','🌸'].map((flower, index) => <button key={flower} className={watered.includes(index) ? 'watered' : ''} onClick={() => waterFlower(index)}><span>{flower}</span>{watered.includes(index) ? '반짝반짝!' : '💧 물주기'}</button>)}</div></div>}
+        {building.name === '별빛우체국' && <div className="room-play post-play"><img src="/durikong.png" alt="우체부 두리콩" /><button className={`letter ${letterOpened ? 'opened' : ''}`} onClick={openLetter}>{letterOpened ? <><span>💌</span><strong>“스스로 정리해서 정말 멋졌어!”</strong><small>오늘의 칭찬을 앨범에 간직했어요.</small></> : <><span>✉️</span><strong>도착한 칭찬 편지</strong><small>눌러서 열어 보세요</small></>}</button></div>}
+        <p className="room-caption">{building.message}</p>
+      </section></div>}
     </main>
   );
 }
