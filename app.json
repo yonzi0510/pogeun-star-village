@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "포근별 마을",
+    "slug": "pogeun-star-village",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FFF8E9",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pogeunstar.village"
+    },
+    "android": {
+      "package": "com.pogeunstar.village",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFF1C8"
+      }
+    }
+  }
+}
