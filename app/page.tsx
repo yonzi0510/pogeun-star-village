@@ -66,6 +66,7 @@ function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
 }
 
 export default function Home() {
+  const saveReady = useRef(false);
   const [allowPortrait, setAllowPortrait] = useState(false);
   const [tab, setTab] = useState<Tab>('마을');
   const [selected, setSelected] = useState('모모몽');
@@ -94,6 +95,37 @@ export default function Home() {
   const resident = residents.find((entry) => entry.name === selected) ?? residents[1];
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('pogeun-star-village-save-v1') ?? 'null');
+      if (saved && typeof saved === 'object') {
+        if (typeof saved.tokens === 'number') setTokens(saved.tokens);
+        if (typeof saved.starlight === 'number') setStarlight(saved.starlight);
+        if (Array.isArray(saved.owned)) setOwned(saved.owned);
+        if (Array.isArray(saved.watered)) setWatered(saved.watered);
+        if (typeof saved.letterOpened === 'boolean') setLetterOpened(saved.letterOpened);
+        if (Array.isArray(saved.sentLetters)) setSentLetters(saved.sentLetters.slice(-20));
+        if (Array.isArray(saved.collectedPets)) setCollectedPets(saved.collectedPets);
+        if (typeof saved.activePet === 'string') setActivePet(saved.activePet);
+        if (saved.petLove && typeof saved.petLove === 'object') setPetLove(saved.petLove);
+        if (Array.isArray(saved.positions) && saved.positions.length === residents.length) setPositions(saved.positions);
+        if (typeof saved.insertedTokens === 'number' && saved.insertedTokens > 0 && saved.insertedTokens <= 5) {
+          setInsertedTokens(saved.insertedTokens);
+          setGachaStage(saved.insertedTokens === 5 ? 'coin' : 'inserting');
+        }
+      }
+    } catch { /* a damaged save simply starts a fresh village */ }
+    saveReady.current = true;
+  }, []);
+  useEffect(() => {
+    if (!saveReady.current) return;
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem('pogeun-star-village-save-v1', JSON.stringify({ tokens, starlight, owned, watered, letterOpened, sentLetters: sentLetters.slice(-20), collectedPets, activePet, petLove, positions, insertedTokens }));
+      } catch { /* private browsing or a full device store should not stop play */ }
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [tokens, starlight, owned, watered, letterOpened, sentLetters, collectedPets, activePet, petLove, positions, insertedTokens]);
   useEffect(() => {
     const timer = window.setInterval(() => setPositions((current) => current.map((position, index) => index === 1 ? position : ({
       x: Math.max(22, Math.min(76, position.x + (Math.random() - .5) * 15)),
@@ -270,7 +302,7 @@ export default function Home() {
 
         {tab === '앨범' && <section className="content-card album"><p className="eyebrow">우리 가족의 반짝이는 기록</p><h2>칭찬 앨범</h2><article><span>💌</span><div><small>정리 칭찬</small><p>스스로 장난감을 정리해서 정말 멋졌어!</p></div><strong>+3</strong></article>{sentLetters.map((letter, index) => <article className="sent-letter-record" key={`letter-${index}`}>{letter.drawing ? <img src={letter.drawing} alt="직접 그린 그림 편지" /> : <span>✍️</span>}<div><small>내가 보낸 손편지</small><p>{letter.text || '그림으로 마음을 전했어요.'}</p></div><strong>💗</strong></article>)}{owned.map((id) => { const item = items.find((entry) => entry.id === id); return item ? <article key={id}><span>{item.emoji}</span><div><small>마을 꾸미기</small><p>{item.name}을 마을에 놓았어요.</p></div><strong className="spent">-{item.cost}</strong></article> : null; })}</section>}
 
-        <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} onClick={() => selectTab(entry.name)}><span className={`menu-icon ${entry.icon}`} aria-hidden="true" />{entry.name}</button>)}</nav>
+        <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} aria-current={tab === entry.name ? 'page' : undefined} onClick={() => selectTab(entry.name)}><span className={`menu-icon ${entry.icon}`} aria-hidden="true" />{entry.name}</button>)}</nav>
       </div>
       {notice && <button className="toast" onClick={() => setNotice('')} aria-live="polite">{notice}<span>×</span></button>}
       {building && <div className="modal-backdrop" role="presentation"><section className={`building-modal room ${building.name === '모모몽의 집' ? 'home-room' : building.name === '구름정원' ? 'garden-room' : 'post-room'}`} role="dialog" aria-modal="true" aria-label={building.name}>
