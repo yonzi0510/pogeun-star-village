@@ -7,6 +7,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -56,17 +57,87 @@ function Building({ emoji, label, tint }: { emoji: string; label: string; tint: 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('마을');
   const [selectedResident, setSelectedResident] = useState('모모몽');
+  const { width, height } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const isWideLayout = width >= 900 && width > height;
 
   const currentResident = useMemo(
     () => residents.find((resident) => resident.name === selectedResident) ?? residents[1]!,
     [selectedResident],
   );
 
+  const praisePanel = (
+    <View style={styles.praiseCard}>
+      <View style={styles.praiseIcon}><Text style={styles.praiseIconText}>💌</Text></View>
+      <View style={styles.praiseCopy}>
+        <Text style={styles.praiseTitle}>오늘 받은 따뜻한 칭찬</Text>
+        <Text style={styles.praiseText}>“스스로 장난감을 정리해서 정말 멋졌어!”</Text>
+      </View>
+      <Text style={styles.plusToken}>+3</Text>
+    </View>
+  );
+
+  const villagePanel = (
+    <View style={[styles.villageCard, isWideLayout && styles.villageCardWide]}>
+      <View style={[styles.cloud, styles.cloudLeft]}><Text style={styles.cloudText}>☁️</Text></View>
+      <View style={[styles.cloud, styles.cloudRight]}><Text style={styles.cloudText}>☁️</Text></View>
+      <Text style={styles.areaBadge}>작은 언덕 · 1단계</Text>
+      <Text style={[styles.villageTitle, isTablet && styles.villageTitleTablet]}>우리 마을이 자라고 있어요!</Text>
+
+      <View style={[styles.buildingsRow, isTablet && styles.buildingsRowTablet]}>
+        <Building emoji="🌳" label="구름정원" tint="#DDF6D9" />
+        <Building emoji="🏡" label="모모몽의 집" tint="#FFF0C2" />
+        <Building emoji="📮" label="별빛우체국" tint="#E5E3FF" />
+      </View>
+
+      <View style={[styles.plaza, isTablet && styles.plazaTablet]}>
+        {residents.map((resident) => (
+          <Pressable
+            key={resident.name}
+            onPress={() => setSelectedResident(resident.name)}
+            style={({ pressed }) => [
+              styles.resident,
+              isTablet && styles.residentTablet,
+              { backgroundColor: resident.color },
+              selectedResident === resident.name && styles.residentSelected,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={[styles.residentEmoji, isTablet && styles.residentEmojiTablet]}>{resident.emoji}</Text>
+            <Text style={styles.residentName}>{resident.name}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={styles.speechBubble}>
+        <Text style={styles.speechName}>{currentResident.name}</Text>
+        <Text style={styles.speechText}>{currentResident.activity}</Text>
+      </View>
+    </View>
+  );
+
+  const progressPanel = (
+    <View style={styles.progressCard}>
+      <View style={styles.progressHeader}>
+        <Text style={styles.progressTitle}>다음 구역까지</Text>
+        <Text style={styles.progressValue}>320 / 500 별빛</Text>
+      </View>
+      <View style={styles.progressTrack}>
+        <View style={styles.progressFill} />
+      </View>
+      <Text style={styles.progressHint}>별빛이 모이면 포근한 이웃 구역의 구름이 걷혀요.</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.sky} />
       <View style={styles.app}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, isTablet && styles.scrollContentTablet]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.pageShell}>
           <View style={styles.header}>
             <View>
               <Text style={styles.eyebrow}>칭찬이 별빛이 되는 곳</Text>
@@ -81,69 +152,35 @@ export default function App() {
             </Pressable>
           </View>
 
-          <View style={styles.statsRow}>
+          <View style={[styles.statsRow, isTablet && styles.statsRowTablet]}>
             <StatPill emoji="⭐" label="칭찬 토큰" value={24} />
             <StatPill emoji="💫" label="별빛" value={320} />
           </View>
 
-          <View style={styles.praiseCard}>
-            <View style={styles.praiseIcon}><Text style={styles.praiseIconText}>💌</Text></View>
-            <View style={styles.praiseCopy}>
-              <Text style={styles.praiseTitle}>오늘 받은 따뜻한 칭찬</Text>
-              <Text style={styles.praiseText}>“스스로 장난감을 정리해서 정말 멋졌어!”</Text>
+          {isWideLayout ? (
+            <View style={styles.wideBody}>
+              <View style={styles.villagePane}>{villagePanel}</View>
+              <View style={styles.sidePane}>
+                {praisePanel}
+                {progressPanel}
+                <View style={styles.tabletNote}>
+                  <Text style={styles.tabletNoteEmoji}>🌈</Text>
+                  <Text style={styles.tabletNoteTitle}>태블릿에서 더 넓게!</Text>
+                  <Text style={styles.tabletNoteText}>마을을 한눈에 보고 주민과 건물을 편하게 눌러보세요.</Text>
+                </View>
+              </View>
             </View>
-            <Text style={styles.plusToken}>+3</Text>
-          </View>
-
-          <View style={styles.villageCard}>
-            <View style={[styles.cloud, styles.cloudLeft]}><Text style={styles.cloudText}>☁️</Text></View>
-            <View style={[styles.cloud, styles.cloudRight]}><Text style={styles.cloudText}>☁️</Text></View>
-            <Text style={styles.areaBadge}>작은 언덕 · 1단계</Text>
-            <Text style={styles.villageTitle}>우리 마을이 자라고 있어요!</Text>
-
-            <View style={styles.buildingsRow}>
-              <Building emoji="🌳" label="구름정원" tint="#DDF6D9" />
-              <Building emoji="🏡" label="모모몽의 집" tint="#FFF0C2" />
-              <Building emoji="📮" label="별빛우체국" tint="#E5E3FF" />
-            </View>
-
-            <View style={styles.plaza}>
-              {residents.map((resident) => (
-                <Pressable
-                  key={resident.name}
-                  onPress={() => setSelectedResident(resident.name)}
-                  style={({ pressed }) => [
-                    styles.resident,
-                    { backgroundColor: resident.color },
-                    selectedResident === resident.name && styles.residentSelected,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={styles.residentEmoji}>{resident.emoji}</Text>
-                  <Text style={styles.residentName}>{resident.name}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <View style={styles.speechBubble}>
-              <Text style={styles.speechName}>{currentResident.name}</Text>
-              <Text style={styles.speechText}>{currentResident.activity}</Text>
-            </View>
-          </View>
-
-          <View style={styles.progressCard}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressTitle}>다음 구역까지</Text>
-              <Text style={styles.progressValue}>320 / 500 별빛</Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
-            </View>
-            <Text style={styles.progressHint}>별빛이 모이면 포근한 이웃 구역의 구름이 걷혀요.</Text>
+          ) : (
+            <>
+              {praisePanel}
+              {villagePanel}
+              {progressPanel}
+            </>
+          )}
           </View>
         </ScrollView>
 
-        <View style={styles.tabBar}>
+        <View style={[styles.tabBar, isTablet && styles.tabBarTablet]}>
           {tabs.map((tab) => (
             <Pressable
               key={tab.label}
@@ -166,12 +203,15 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.sky },
   app: { flex: 1, backgroundColor: colors.cream },
   scrollContent: { padding: 18, paddingBottom: 28 },
+  scrollContentTablet: { padding: 24, paddingBottom: 34 },
+  pageShell: { width: '100%', maxWidth: 1180, alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   eyebrow: { color: colors.muted, fontSize: 12, fontWeight: '700', marginBottom: 3 },
   title: { color: colors.cocoa, fontSize: 26, fontWeight: '900', letterSpacing: -0.6 },
   iconButton: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center', ...shadow },
   iconText: { fontSize: 22 },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  statsRowTablet: { maxWidth: 460, alignSelf: 'flex-end', width: '100%' },
   statPill: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.paper, borderRadius: 22, paddingVertical: 11, paddingHorizontal: 14, borderWidth: 2, borderColor: '#F3E4CC', ...shadow },
   statEmoji: { fontSize: 25 },
   statLabel: { color: colors.muted, fontSize: 11, fontWeight: '700' },
@@ -184,20 +224,26 @@ const styles = StyleSheet.create({
   praiseText: { color: colors.cocoa, fontSize: 13, fontWeight: '700', lineHeight: 18 },
   plusToken: { color: colors.pink, fontSize: 19, fontWeight: '900', marginLeft: 5 },
   villageCard: { minHeight: 455, overflow: 'hidden', backgroundColor: '#CFF2C8', borderRadius: 30, borderWidth: 3, borderColor: colors.white, padding: 16, ...shadow },
+  villageCardWide: { minHeight: 620, padding: 24, justifyContent: 'space-between' },
   cloud: { position: 'absolute', opacity: 0.82 },
   cloudLeft: { top: 45, left: -27 },
   cloudRight: { top: 114, right: -35 },
   cloudText: { fontSize: 85 },
   areaBadge: { alignSelf: 'center', backgroundColor: '#FFFFFFD9', color: colors.muted, borderRadius: 14, paddingVertical: 5, paddingHorizontal: 11, fontSize: 11, fontWeight: '800', overflow: 'hidden' },
   villageTitle: { textAlign: 'center', color: '#477B50', fontSize: 19, fontWeight: '900', marginTop: 9, marginBottom: 15 },
+  villageTitleTablet: { fontSize: 24, marginTop: 12, marginBottom: 20 },
   buildingsRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
+  buildingsRowTablet: { gap: 14 },
   building: { flex: 1, minHeight: 92, borderRadius: 22, padding: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFFFFFC7', ...shadow },
   buildingEmoji: { fontSize: 36 },
   buildingLabel: { marginTop: 3, color: colors.cocoa, fontSize: 10, fontWeight: '800', textAlign: 'center' },
   plaza: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10, backgroundColor: '#F5DFA8', borderColor: '#FFF4CF', borderWidth: 5, borderRadius: 80, paddingVertical: 20, paddingHorizontal: 12, marginTop: 18 },
+  plazaTablet: { gap: 18, paddingVertical: 28, marginTop: 24 },
   resident: { width: 63, height: 76, borderRadius: 28, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: colors.white },
+  residentTablet: { width: 82, height: 96, borderRadius: 36 },
   residentSelected: { transform: [{ translateY: -7 }], borderColor: colors.butter },
   residentEmoji: { fontSize: 34 },
+  residentEmojiTablet: { fontSize: 46 },
   residentName: { color: colors.cocoa, fontSize: 10, fontWeight: '900', marginTop: 2 },
   speechBubble: { backgroundColor: colors.paper, borderRadius: 17, paddingVertical: 10, paddingHorizontal: 14, marginTop: 13, alignSelf: 'center', minWidth: '82%', ...shadow },
   speechName: { textAlign: 'center', color: colors.pink, fontSize: 12, fontWeight: '900' },
@@ -209,7 +255,15 @@ const styles = StyleSheet.create({
   progressTrack: { height: 13, borderRadius: 8, backgroundColor: '#ECE4F7', marginVertical: 9, overflow: 'hidden' },
   progressFill: { height: '100%', width: '64%', borderRadius: 8, backgroundColor: colors.lavender },
   progressHint: { color: colors.muted, fontSize: 11, lineHeight: 16 },
+  wideBody: { flexDirection: 'row', alignItems: 'stretch', gap: 20 },
+  villagePane: { flex: 1.65, minWidth: 0 },
+  sidePane: { flex: 0.85, minWidth: 300 },
+  tabletNote: { backgroundColor: '#EEF7FF', borderColor: '#D3E8FA', borderWidth: 2, borderRadius: 22, padding: 18, marginTop: 14 },
+  tabletNoteEmoji: { fontSize: 30, marginBottom: 8 },
+  tabletNoteTitle: { color: colors.cocoa, fontSize: 16, fontWeight: '900', marginBottom: 5 },
+  tabletNoteText: { color: colors.muted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
   tabBar: { flexDirection: 'row', backgroundColor: colors.paper, borderTopColor: '#F0E4D2', borderTopWidth: 1, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10 },
+  tabBarTablet: { alignSelf: 'center', width: '100%', maxWidth: 760, borderRadius: 24, borderWidth: 1, borderColor: '#F0E4D2', marginBottom: 12, paddingHorizontal: 18 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 5, borderRadius: 16 },
   activeTab: { backgroundColor: '#FFF0D4' },
   tabEmoji: { fontSize: 22 },
