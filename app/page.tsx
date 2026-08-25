@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 
-type Tab = '마을' | '친구' | '꾸미기' | '앨범';
+type Tab = '마을' | '친구' | '별뽑기' | '꾸미기' | '앨범';
 
 const residents = [
   { name: '포포', sprite: '/popo.png', portrait: 'p1', color: 'mint', activity: '구름정원에 물 주는 중' },
@@ -20,7 +20,7 @@ const items = [
 
 const tabs: { name: Tab; emoji: string }[] = [
   { name: '마을', emoji: '🏡' }, { name: '친구', emoji: '🐰' },
-  { name: '꾸미기', emoji: '🖌️' }, { name: '앨범', emoji: '📖' },
+  { name: '별뽑기', emoji: '🌟' }, { name: '꾸미기', emoji: '🖌️' }, { name: '앨범', emoji: '📖' },
 ];
 
 function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
@@ -69,6 +69,7 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>('마을');
   const [selected, setSelected] = useState('모모몽');
   const [tokens, setTokens] = useState(24);
+  const [starlight, setStarlight] = useState(320);
   const [owned, setOwned] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
   const [gameMinutes, setGameMinutes] = useState(8 * 60 + 10);
@@ -79,6 +80,11 @@ export default function Home() {
   const [letterText, setLetterText] = useState('');
   const [drawingData, setDrawingData] = useState('');
   const [sentLetters, setSentLetters] = useState<{ text: string; drawing: string }[]>([]);
+  const [collectedPets, setCollectedPets] = useState(['모모몽']);
+  const [activePet, setActivePet] = useState('모모몽');
+  const [petLove, setPetLove] = useState<Record<string, number>>({ '모모몽': 35 });
+  const [drawingPrize, setDrawingPrize] = useState(false);
+  const [lastPrize, setLastPrize] = useState<string | null>(null);
   const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 45, y: 72 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
   const resident = residents.find((entry) => entry.name === selected) ?? residents[1];
 
@@ -160,6 +166,25 @@ export default function Home() {
     setLetterText(''); setDrawingData(''); setPostMode('read');
   }
 
+  function drawStar() {
+    if (drawingPrize) return;
+    if (tokens < 5) return setNotice('별뽑기에는 칭찬 토큰 5개가 필요해요!');
+    setTokens((value) => value - 5); setDrawingPrize(true); setLastPrize(null);
+    window.setTimeout(() => {
+      const prize = residents[Math.floor(Math.random() * residents.length)];
+      setLastPrize(prize.name); setActivePet(prize.name); setDrawingPrize(false);
+      setPetLove((current) => ({ ...current, [prize.name]: current[prize.name] ?? 20 }));
+      setCollectedPets((current) => current.includes(prize.name) ? current : [...current, prize.name]);
+      if (collectedPets.includes(prize.name)) { setStarlight((value) => value + 30); setNotice(`${prize.name}을 다시 만나 별빛 30개를 받았어요!`); }
+      else setNotice(`새 친구 ${prize.name}이 포근별 마을에 왔어요!`);
+    }, 900);
+  }
+
+  function carePet(action: string) {
+    setPetLove((current) => ({ ...current, [activePet]: Math.min(100, (current[activePet] ?? 20) + 8) }));
+    setNotice(`${activePet}에게 ${action}! 애정도가 올랐어요 💗`);
+  }
+
   return (
     <main className="game-shell">
       <div className="sky-decor" aria-hidden="true"><span>☁️</span><span>✨</span><span>☁️</span></div>
@@ -168,7 +193,7 @@ export default function Home() {
           <div><p className="eyebrow">칭찬이 별빛이 되는 곳</p><h1>포근별 마을 <span>✨</span></h1></div>
           <div className="stats" aria-label="게임 재화">
             <div className="stat"><span>⭐</span><p>칭찬 토큰<strong>{tokens}</strong></p></div>
-            <div className="stat"><span>💫</span><p>별빛<strong>320</strong></p></div>
+            <div className="stat"><span>💫</span><p>별빛<strong>{starlight}</strong></p></div>
             <div className="stat clock"><span>🌤️</span><p>포근한 아침<strong>{timeLabel}</strong></p></div>
           </div>
         </header>
@@ -193,6 +218,8 @@ export default function Home() {
         </section>}
 
         {tab === '친구' && <section className="content-card"><p className="eyebrow">포근별 마을</p><h2>친구</h2><div className="card-grid">{residents.map((entry) => <button key={entry.name} className={`friend-card ${entry.color}`} onClick={() => setNotice(entry.activity)}><img className="friend-sprite" src={entry.sprite} alt="" /><strong>{entry.name}</strong><p>{entry.activity}</p></button>)}</div></section>}
+
+        {tab === '별뽑기' && <section className="content-card gacha-card"><p className="eyebrow">칭찬 토큰이 새로운 만남으로</p><h2>별뽑기와 펫 돌보기</h2><div className="gacha-grid"><div className="star-machine"><div className={`capsule-globe ${drawingPrize ? 'spinning' : ''}`}>{lastPrize ? <img src={residents.find((entry) => entry.name === lastPrize)?.sprite} alt={`${lastPrize} 등장`} /> : <><span>⭐</span><i>?</i></>}</div><button onClick={drawStar} disabled={drawingPrize}>{drawingPrize ? '별이 내려오는 중…' : '칭찬 토큰 5개로 뽑기'}</button><small>현금 결제 없이, 가족에게 받은 칭찬 토큰만 사용해요.</small></div><div className="pet-care">{(() => { const pet = residents.find((entry) => entry.name === activePet) ?? residents[1]; const love = petLove[activePet] ?? 20; return <><p className="pet-name"><small>나의 포근펫</small><strong>{pet.name}</strong></p><img src={pet.sprite} alt={`${pet.name} 돌보기`} /><div className="love-label"><span>애정도</span><strong>{love}/100 💗</strong></div><div className="love-meter"><i style={{ width: `${love}%` }} /></div><div className="care-actions"><button onClick={() => carePet('별쿠키를 주었어요')}>🍪 간식</button><button onClick={() => carePet('신나게 놀아주었어요')}>🧸 놀기</button><button onClick={() => carePet('포근하게 쓰다듬었어요')}>🫶 쓰담</button></div></>; })()}</div></div><div className="pet-collection"><strong>만난 친구들 {collectedPets.length}/{residents.length}</strong><div>{residents.map((pet) => <button key={pet.name} className={collectedPets.includes(pet.name) ? '' : 'locked'} disabled={!collectedPets.includes(pet.name)} onClick={() => setActivePet(pet.name)}><img src={pet.sprite} alt="" /><span>{collectedPets.includes(pet.name) ? pet.name : '아직 비밀'}</span></button>)}</div></div></section>}
 
         {tab === '꾸미기' && <section className="content-card"><p className="eyebrow">칭찬 토큰으로 꾸며요</p><h2>꾸미기</h2><div className="card-grid items">{items.map((item) => <button key={item.id} className="item-card" onClick={() => buy(item)}><span>{item.emoji}</span><strong>{item.name}</strong><em>{owned.includes(item.id) ? '보유 중' : `⭐ ${item.cost}`}</em></button>)}</div></section>}
 
