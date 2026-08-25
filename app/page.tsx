@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type PointerEvent } from 'react';
 
 type Tab = '마을' | '친구' | '꾸미기' | '앨범';
 
@@ -29,17 +29,50 @@ export default function Home() {
   const [tokens, setTokens] = useState(24);
   const [owned, setOwned] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
+  const [gameMinutes, setGameMinutes] = useState(8 * 60 + 10);
+  const [building, setBuilding] = useState<{ name: string; icon: string; message: string } | null>(null);
   const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 45, y: 72 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
   const resident = residents.find((entry) => entry.name === selected) ?? residents[1];
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
-    const timer = window.setInterval(() => setPositions((current) => current.map((position) => ({
+    const timer = window.setInterval(() => setPositions((current) => current.map((position, index) => index === 1 ? position : ({
       x: Math.max(22, Math.min(76, position.x + (Math.random() - .5) * 15)),
       y: Math.max(52, Math.min(79, position.y + (Math.random() - .5) * 10)),
     }))), 2200);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const timer = window.setInterval(() => setGameMinutes((value) => (value + 10) % 1440), 4000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    function moveWithKeys(event: KeyboardEvent) {
+      const delta = event.key === 'ArrowLeft' ? [-3, 0] : event.key === 'ArrowRight' ? [3, 0] : event.key === 'ArrowUp' ? [0, -3] : event.key === 'ArrowDown' ? [0, 3] : null;
+      if (!delta) return;
+      event.preventDefault();
+      setPositions((current) => current.map((position, index) => index === 1 ? { x: Math.max(15, Math.min(85, position.x + delta[0])), y: Math.max(42, Math.min(84, position.y + delta[1])) } : position));
+    }
+    window.addEventListener('keydown', moveWithKeys);
+    return () => window.removeEventListener('keydown', moveWithKeys);
+  }, []);
+
+  const timeLabel = `${String(Math.floor(gameMinutes / 60)).padStart(2, '0')}:${String(gameMinutes % 60).padStart(2, '0')}`;
+
+  function movePlayer(event: PointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(15, Math.min(85, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(42, Math.min(84, ((event.clientY - rect.top) / rect.height) * 100));
+    setPositions((current) => current.map((position, index) => index === 1 ? { x, y } : position));
+    setSelected('모모몽');
+  }
+
+  function talkTo(name: string, index: number, activity: string) {
+    const destination = positions[index] ?? { x: 50, y: 65 };
+    setPositions((current) => current.map((position, positionIndex) => positionIndex === 1 ? { x: Math.max(15, destination.x - 8), y: destination.y } : position));
+    setSelected(name);
+    setNotice(`${name}: ${activity}`);
+  }
 
   function selectTab(nextTab: Tab) {
     setTab(nextTab); setNotice('');
@@ -63,17 +96,20 @@ export default function Home() {
           <div className="stats" aria-label="게임 재화">
             <div className="stat"><span>⭐</span><p>칭찬 토큰<strong>{tokens}</strong></p></div>
             <div className="stat"><span>💫</span><p>별빛<strong>320</strong></p></div>
+            <div className="stat clock"><span>🌤️</span><p>포근한 아침<strong>{timeLabel}</strong></p></div>
           </div>
         </header>
 
         {tab === '마을' && <section className="home-grid">
           <div className="village-card illustrated">
             <img src="/village-map.png" alt="산책할 수 있는 포근별 마을 광장" />
+            <div className="map-walk-layer" onPointerDown={movePlayer} role="application" aria-label="눌러서 모모몽을 이동시키는 마을 지도" />
             <div className="village-heading"><span className="stage-pill">작은 언덕 · 1단계</span><h2>우리 마을이 자라고 있어요!</h2></div>
-            <button className="map-hit house-hit" aria-label="모모몽의 집" onClick={() => setNotice('모모몽의 집에 별빛이 반짝여요!')} />
-            <button className="map-hit garden-hit" aria-label="구름정원" onClick={() => setNotice('포포가 구름정원에 물을 주고 있어요!')} />
-            <button className="map-hit post-hit" aria-label="별빛우체국" onClick={() => setNotice('두리콩이 새 편지를 가져왔어요!')} />
-            <div className="moving-layer">{residents.map((entry, index) => <button key={entry.name} className={`moving-character ${selected === entry.name ? 'selected' : ''}`} style={{ left: `${positions[index]?.x ?? 50}%`, top: `${positions[index]?.y ?? 65}%` }} onClick={() => { setSelected(entry.name); setNotice(`${entry.name}: ${entry.activity}`); }} aria-label={`${entry.name}에게 말 걸기`}><img src={entry.sprite} alt="" /><span>{entry.name}</span></button>)}</div>
+            <button className="map-hit house-hit" aria-label="모모몽의 집에 들어가기" onClick={() => setBuilding({ name: '모모몽의 집', icon: '🏡', message: '포근한 침대와 장난감 상자가 있어요. 앞으로 가구를 직접 배치할 수 있게 됩니다.' })} />
+            <button className="map-hit garden-hit" aria-label="구름정원에 들어가기" onClick={() => setBuilding({ name: '구름정원', icon: '🌳', message: '포포와 꽃에 물을 주고 별씨앗을 심을 수 있는 정원이에요.' })} />
+            <button className="map-hit post-hit" aria-label="별빛우체국에 들어가기" onClick={() => setBuilding({ name: '별빛우체국', icon: '📮', message: '두리콩이 가족의 칭찬 편지를 보관하고 있어요.' })} />
+            <div className="moving-layer">{residents.map((entry, index) => <button key={entry.name} className={`moving-character ${index === 1 ? 'player' : 'npc'} ${selected === entry.name ? 'selected' : ''}`} style={{ left: `${positions[index]?.x ?? 50}%`, top: `${positions[index]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); index === 1 ? setNotice('지도를 눌러 모모몽을 움직여 보세요!') : talkTo(entry.name, index, entry.activity); }} aria-label={index === 1 ? '내 캐릭터 모모몽' : `${entry.name}에게 다가가 말 걸기`}><img src={entry.sprite} alt="" /><span>{index === 1 ? '내 모모몽' : entry.name}</span></button>)}</div>
+            <div className="move-guide">👆 지도를 눌러 이동 · ⌨️ 방향키도 가능</div>
             <div className="speech"><strong>{resident?.name}</strong><span>{resident?.activity}</span></div>
           </div>
           <aside className="side-panel">
@@ -92,6 +128,7 @@ export default function Home() {
         <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} onClick={() => selectTab(entry.name)}><span>{entry.emoji}</span>{entry.name}</button>)}</nav>
       </div>
       {notice && <button className="toast" onClick={() => setNotice('')} aria-live="polite">{notice}<span>×</span></button>}
+      {building && <div className="modal-backdrop" role="presentation" onClick={() => setBuilding(null)}><section className="building-modal" role="dialog" aria-modal="true" aria-label={building.name} onClick={(event) => event.stopPropagation()}><span>{building.icon}</span><p className="eyebrow">건물에 들어왔어요</p><h2>{building.name}</h2><p>{building.message}</p><button onClick={() => setBuilding(null)}>마을로 돌아가기</button></section></div>}
     </main>
   );
 }
