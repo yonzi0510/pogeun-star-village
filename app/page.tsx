@@ -379,9 +379,9 @@ export default function Home() {
         {building.name === '모모몽의 집' && <>
           <img className="room-npc home-npc" src="/lurustar.png" alt="집에 놀러 온 루루별" />
           <button className="world-hotspot friend-talk-spot home-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('루루별', 55, 48); }} aria-label="루루별과 이야기하기"><span>루루별과 이야기</span></button>
-          <button className="world-hotspot home-bed-spot" onClick={(event) => { event.stopPropagation(); walkTo(23, 53, () => setNotice('모모몽이 구름 침대에 누워 포근하게 쉬고 있어요.'), 'sleep'); }}><span>구름 침대에 눕기</span></button>
+          <button className="world-hotspot home-bed-spot" onClick={(event) => { event.stopPropagation(); walkTo(18, 42, () => setNotice('모모몽이 구름 침대에 누워 포근하게 쉬고 있어요.'), 'sleep'); }}><span>구름 침대에 눕기</span></button>
           <button className="world-hotspot home-toy-spot" onClick={(event) => { event.stopPropagation(); walkTo(61, 42, () => setNotice('모모몽이 장난감 친구들과 폴짝폴짝 놀고 있어요!'), 'play'); }}><span>장난감으로 놀기</span></button>
-          <button className="world-hotspot home-sofa-spot" onClick={(event) => { event.stopPropagation(); walkTo(82, 55, () => setNotice('모모몽이 리본 소파에 앉아 발을 흔들고 있어요.'), 'sit'); }}><span>리본 소파에 앉기</span></button>
+          <button className="world-hotspot home-sofa-spot" onClick={(event) => { event.stopPropagation(); walkTo(83, 43, () => setNotice('모모몽이 리본 소파에 앉아 발을 흔들고 있어요.'), 'sit'); }}><span>리본 소파에 앉기</span></button>
           <div className="room-owned-tray">{owned.length ? owned.map((id) => { const item = items.find((entry) => entry.id === id); return item && <button key={id} onClick={() => setNotice(`${item.name}도 집 안에 예쁘게 놓여 있어요!`)}>{item.name}</button>; }) : <span>바닥을 눌러 집 안을 걸어 보세요</span>}</div>
         </>}
         {building.name === '구름정원' && <>
