@@ -339,7 +339,7 @@ export default function Home() {
     <main className={`game-shell ${allowPortrait ? 'portrait-allowed' : ''}`}>
       <div className="sky-decor" aria-hidden="true"><span>☁️</span><span>✨</span><span>☁️</span></div>
       <div className="game-frame" aria-hidden={building ? true : undefined}>
-        <header className="topbar">
+        <header className={`topbar ${tab === '마을' ? 'village-topbar' : ''}`}>
           <div><p className="eyebrow">칭찬이 별빛이 되는 곳</p><h1>포근별 마을 <span>✨</span></h1></div>
           <div className="stats" aria-label="게임 재화">
             <div className="stat token-stat"><img src="/praise-token-3d.png" alt="" /><p>칭찬 토큰<strong>{tokens}</strong></p></div>
@@ -352,20 +352,11 @@ export default function Home() {
           <div className="village-card illustrated">
             <img src="/village-map-expanded-v2.png" alt="산책할 수 있는 넓어진 포근별 마을" />
             <div className="map-walk-layer" onPointerDown={movePlayer} role="application" aria-label="눌러서 모모몽을 이동시키는 마을 지도" />
-            <div className="village-heading"><span className="stage-pill">작은 언덕 · 1단계</span><h2>우리 마을이 자라고 있어요!</h2></div>
-            <button className="map-hit map-entry house-hit" aria-label="모모몽의 집에 들어가기" onClick={() => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다니며 루루별과 이야기할 수 있어요.' })}><span>집 들어가기</span></button>
-            <button className="map-hit map-entry garden-hit" aria-label="구름정원에 들어가기" onClick={() => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 물을 주고 포포와 이야기하는 정원이에요.' })}><span>정원 들어가기</span></button>
-            <button className="map-hit map-entry post-hit" aria-label="별빛우체국에 들어가기" onClick={() => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지를 읽고 그리며 두리콩과 이야기하는 우체국이에요.' })}><span>우체국 들어가기</span></button>
+            <button className="map-hit door-hit house-hit" aria-label="토끼집 문을 열고 모모몽의 집에 들어가기" onClick={() => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다니며 루루별과 이야기할 수 있어요.' })} />
+            <button className="map-hit door-hit garden-hit" aria-label="구름정원 입구로 들어가기" onClick={() => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 물을 주고 포포와 이야기하는 정원이에요.' })} />
+            <button className="map-hit door-hit post-hit" aria-label="우체국 문을 열고 별빛우체국에 들어가기" onClick={() => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지를 읽고 그리며 두리콩과 이야기하는 우체국이에요.' })} />
             <div className="moving-layer"><button className={`moving-character player ${villageWalking ? 'walking' : ''} selected`} style={{ left: `${positions[1]?.x ?? 50}%`, top: `${positions[1]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); setNotice('넓어진 마을 바닥을 눌러 모모몽을 움직여 보세요!'); }} aria-label="내 캐릭터 모모몽"><img src="/momomong.png" alt="" /><span>내 모모몽</span></button></div>
-            <div className="move-guide">지도를 눌러 이동 · 방향키도 가능</div>
-            <div className="speech"><strong>모모몽</strong><span>넓어진 마을을 탐험하는 중</span></div>
           </div>
-          <aside className="side-panel">
-            <button className="praise-mail-toggle" onClick={() => setShowPraise((value) => !value)} aria-expanded={showPraise}><i aria-hidden="true" /><span>칭찬 편지</span><strong>1</strong></button>
-            {showPraise && <div className="praise-card"><button className="praise-close" onClick={() => setShowPraise(false)} aria-label="칭찬 편지 닫기">×</button><div><small>오늘 받은 따뜻한 칭찬</small><p>“스스로 장난감을 정리해서 정말 멋졌어!”</p></div><strong>+3</strong></div>}
-            <div className="progress-card"><div><strong>다음 구역까지</strong><span>320 / 500 별빛</span></div><div className="progress"><i /></div><p>별빛이 모이면 포근한 이웃 구역의 구름이 걷혀요.</p></div>
-            <div className="tip-card"><span>🌈</span><strong>태블릿에서 더 넓게!</strong><p>주민과 건물을 눌러 마을을 둘러보세요.</p></div>
-          </aside>
         </section>
 
         {tab === '친구' && <section className="content-card"><p className="eyebrow">포근별 마을</p><h2>친구</h2><div className="card-grid">{residents.map((entry) => <button key={entry.name} className={`friend-card ${entry.color}`} onClick={() => setNotice(entry.activity)}><img className="friend-sprite" src={entry.sprite} alt="" /><strong>{entry.name}</strong><p>{entry.activity}</p></button>)}</div></section>}
@@ -376,7 +367,7 @@ export default function Home() {
 
         {tab === '앨범' && <section className="content-card album"><p className="eyebrow">우리 가족의 반짝이는 기록</p><h2>칭찬 앨범</h2><article><span>💌</span><div><small>정리 칭찬</small><p>스스로 장난감을 정리해서 정말 멋졌어!</p></div><strong>+3</strong></article>{sentLetters.map((letter, index) => <article className="sent-letter-record" key={`letter-${index}`}>{letter.drawing ? <img src={letter.drawing} alt="직접 그린 그림 편지" /> : <span>✍️</span>}<div><small>내가 보낸 손편지</small><p>{letter.text || '그림으로 마음을 전했어요.'}</p></div><strong>💗</strong></article>)}{owned.map((id) => { const item = items.find((entry) => entry.id === id); return item ? <article key={id}><span>{item.emoji}</span><div><small>마을 꾸미기</small><p>{item.name}을 마을에 놓았어요.</p></div><strong className="spent">-{item.cost}</strong></article> : null; })}</section>}
 
-        <nav className="tabbar" aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} aria-current={tab === entry.name ? 'page' : undefined} onClick={() => selectTab(entry.name)}><span className={`menu-icon ${entry.icon}`} aria-hidden="true" />{entry.name}</button>)}</nav>
+        <nav className={`tabbar ${tab === '마을' ? 'village-tabbar' : ''}`} aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} aria-current={tab === entry.name ? 'page' : undefined} onClick={() => selectTab(entry.name)}><span className={`menu-icon ${entry.icon}`} aria-hidden="true" />{entry.name}</button>)}</nav>
       </div>
       {notice && <button className="toast" onClick={() => setNotice('')} aria-live="polite">{notice}<span>×</span></button>}
       {building && <section className={`room-world ${building.name === '모모몽의 집' ? 'home-world' : building.name === '구름정원' ? 'garden-world' : 'post-world'}`} role="dialog" aria-modal="true" aria-label={building.name}>
