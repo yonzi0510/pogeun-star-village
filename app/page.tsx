@@ -68,6 +68,7 @@ function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
 export default function Home() {
   const saveReady = useRef(false);
   const [allowPortrait, setAllowPortrait] = useState(false);
+  const [showPraise, setShowPraise] = useState(false);
   const [tab, setTab] = useState<Tab>('마을');
   const [selected, setSelected] = useState('모모몽');
   const [tokens, setTokens] = useState(24);
@@ -78,6 +79,11 @@ export default function Home() {
   const [building, setBuilding] = useState<{ name: string; icon: string; message: string } | null>(null);
   const [roomPosition, setRoomPosition] = useState({ x: 50, y: 78 });
   const roomActionTimer = useRef<number | null>(null);
+  const roomMotionTimer = useRef<number | null>(null);
+  const villageMotionTimer = useRef<number | null>(null);
+  const [roomWalking, setRoomWalking] = useState(false);
+  const [villageWalking, setVillageWalking] = useState(false);
+  const [roomAction, setRoomAction] = useState<'water' | 'read' | 'write' | 'rest' | 'play' | null>(null);
   const [watered, setWatered] = useState<number[]>([]);
   const [letterOpened, setLetterOpened] = useState(false);
   const [postMode, setPostMode] = useState<'read' | 'write'>('read');
@@ -146,17 +152,27 @@ export default function Home() {
         if (!delta) return;
         event.preventDefault();
         setRoomPosition((position) => ({ x: Math.max(8, Math.min(92, position.x + delta[0])), y: Math.max(24, Math.min(86, position.y + delta[1])) }));
+        setRoomAction(null); setRoomWalking(true);
+        if (roomMotionTimer.current) window.clearTimeout(roomMotionTimer.current);
+        roomMotionTimer.current = window.setTimeout(() => setRoomWalking(false), 360);
         return;
       }
       const delta = event.key === 'ArrowLeft' ? [-3, 0] : event.key === 'ArrowRight' ? [3, 0] : event.key === 'ArrowUp' ? [0, -3] : event.key === 'ArrowDown' ? [0, 3] : null;
       if (!delta) return;
       event.preventDefault();
       setPositions((current) => current.map((position, index) => index === 1 ? { x: Math.max(15, Math.min(85, position.x + delta[0])), y: Math.max(42, Math.min(84, position.y + delta[1])) } : position));
+      setVillageWalking(true);
+      if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
+      villageMotionTimer.current = window.setTimeout(() => setVillageWalking(false), 360);
     }
     window.addEventListener('keydown', moveWithKeys);
     return () => window.removeEventListener('keydown', moveWithKeys);
   }, [building]);
-  useEffect(() => () => { if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current); }, []);
+  useEffect(() => () => {
+    if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current);
+    if (roomMotionTimer.current) window.clearTimeout(roomMotionTimer.current);
+    if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
+  }, []);
 
   const timeLabel = `${String(Math.floor(gameMinutes / 60)).padStart(2, '0')}:${String(gameMinutes % 60).padStart(2, '0')}`;
 
@@ -166,9 +182,13 @@ export default function Home() {
     const y = Math.max(42, Math.min(84, ((event.clientY - rect.top) / rect.height) * 100));
     setPositions((current) => current.map((position, index) => index === 1 ? { x, y } : position));
     setSelected('모모몽');
+    setVillageWalking(true);
+    if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
+    villageMotionTimer.current = window.setTimeout(() => setVillageWalking(false), 850);
   }
 
   function enterBuilding(nextBuilding: { name: string; icon: string; message: string }) {
+    setShowPraise(false);
     setRoomPosition({ x: 50, y: 78 });
     setPostMode('read');
     setBuilding(nextBuilding);
@@ -181,23 +201,33 @@ export default function Home() {
       x: Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100)),
       y: Math.max(24, Math.min(86, ((event.clientY - rect.top) / rect.height) * 100)),
     });
+    setRoomAction(null); setRoomWalking(true);
+    if (roomMotionTimer.current) window.clearTimeout(roomMotionTimer.current);
+    roomMotionTimer.current = window.setTimeout(() => setRoomWalking(false), 680);
   }
 
-  function walkTo(x: number, y: number, action: () => void) {
+  function walkTo(x: number, y: number, action: () => void, actionType: 'water' | 'read' | 'write' | 'rest' | 'play') {
     if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current);
-    setRoomPosition({ x, y });
-    roomActionTimer.current = window.setTimeout(action, 620);
+    if (roomMotionTimer.current) window.clearTimeout(roomMotionTimer.current);
+    setRoomAction(null); setRoomWalking(true); setRoomPosition({ x, y });
+    roomActionTimer.current = window.setTimeout(() => {
+      setRoomWalking(false); setRoomAction(actionType); action();
+      roomMotionTimer.current = window.setTimeout(() => setRoomAction(null), 1250);
+    }, 620);
   }
 
   function talkTo(name: string, index: number, activity: string) {
     const destination = positions[index] ?? { x: 50, y: 65 };
     setPositions((current) => current.map((position, positionIndex) => positionIndex === 1 ? { x: Math.max(15, destination.x - 8), y: destination.y } : position));
     setSelected(name);
+    setVillageWalking(true);
+    if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
+    villageMotionTimer.current = window.setTimeout(() => setVillageWalking(false), 850);
     setNotice(`${name}: ${activity}`);
   }
 
   function selectTab(nextTab: Tab) {
-    setTab(nextTab); setNotice('');
+    setTab(nextTab); setNotice(''); setShowPraise(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -316,12 +346,13 @@ export default function Home() {
             <button className="map-hit house-hit" aria-label="모모몽의 집에 들어가기" onClick={() => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다닐 수 있는 포근한 집이에요.' })} />
             <button className="map-hit garden-hit" aria-label="구름정원에 들어가기" onClick={() => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 꽃에 직접 물을 주는 정원이에요.' })} />
             <button className="map-hit post-hit" aria-label="별빛우체국에 들어가기" onClick={() => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지함과 그림 책상까지 직접 걸어가는 우체국이에요.' })} />
-            <div className="moving-layer">{residents.map((entry, index) => <button key={entry.name} className={`moving-character ${index === 1 ? 'player' : 'npc'} ${selected === entry.name ? 'selected' : ''}`} style={{ left: `${positions[index]?.x ?? 50}%`, top: `${positions[index]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); index === 1 ? setNotice('지도를 눌러 모모몽을 움직여 보세요!') : talkTo(entry.name, index, entry.activity); }} aria-label={index === 1 ? '내 캐릭터 모모몽' : `${entry.name}에게 다가가 말 걸기`}><img src={entry.sprite} alt="" /><span>{index === 1 ? '내 모모몽' : entry.name}</span></button>)}</div>
+            <div className="moving-layer">{residents.map((entry, index) => <button key={entry.name} className={`moving-character ${index === 1 ? 'player' : 'npc'} ${index === 1 && villageWalking ? 'walking' : ''} ${selected === entry.name ? 'selected' : ''}`} style={{ left: `${positions[index]?.x ?? 50}%`, top: `${positions[index]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); index === 1 ? setNotice('지도를 눌러 모모몽을 움직여 보세요!') : talkTo(entry.name, index, entry.activity); }} aria-label={index === 1 ? '내 캐릭터 모모몽' : `${entry.name}에게 다가가 말 걸기`}><img src={entry.sprite} alt="" /><span>{index === 1 ? '내 모모몽' : entry.name}</span></button>)}</div>
             <div className="move-guide">지도를 눌러 이동 · 방향키도 가능</div>
             <div className="speech"><strong>{resident?.name}</strong><span>{resident?.activity}</span></div>
           </div>
           <aside className="side-panel">
-            <div className="praise-card"><div><small>오늘 받은 따뜻한 칭찬</small><p>“스스로 장난감을 정리해서 정말 멋졌어!”</p></div><strong>+3</strong></div>
+            <button className="praise-mail-toggle" onClick={() => setShowPraise((value) => !value)} aria-expanded={showPraise}><i aria-hidden="true" /><span>칭찬 편지</span><strong>1</strong></button>
+            {showPraise && <div className="praise-card"><button className="praise-close" onClick={() => setShowPraise(false)} aria-label="칭찬 편지 닫기">×</button><div><small>오늘 받은 따뜻한 칭찬</small><p>“스스로 장난감을 정리해서 정말 멋졌어!”</p></div><strong>+3</strong></div>}
             <div className="progress-card"><div><strong>다음 구역까지</strong><span>320 / 500 별빛</span></div><div className="progress"><i /></div><p>별빛이 모이면 포근한 이웃 구역의 구름이 걷혀요.</p></div>
             <div className="tip-card"><span>🌈</span><strong>태블릿에서 더 넓게!</strong><p>주민과 건물을 눌러 마을을 둘러보세요.</p></div>
           </aside>
@@ -342,22 +373,22 @@ export default function Home() {
         <img className="room-world-art" src={building.name === '모모몽의 집' ? '/room-home-v2.png' : building.name === '구름정원' ? '/room-garden-v2.png' : '/room-post-v2.png'} alt={`${building.name} 안의 걸어 다닐 수 있는 공간`} />
         <div className="room-walk-layer" onPointerDown={moveInside} role="application" aria-label={`${building.name} 바닥을 눌러 모모몽 이동`} />
         <header className="room-world-hud"><div><small>직접 걸어 다니는 공간</small><strong>{building.name}</strong></div><p>{building.message}</p><button onClick={() => { if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current); setPostMode('read'); setBuilding(null); }} aria-label="건물에서 나가 마을로 돌아가기">마을로 나가기</button></header>
-        <img className="room-player" src="/momomong.png" alt="움직이는 내 모모몽" style={{ left: `${roomPosition.x}%`, top: `${roomPosition.y}%` }} />
+        <img className={`room-player ${roomWalking ? 'walking' : ''} ${roomAction ? `acting ${roomAction}` : ''}`} src="/momomong.png" alt="움직이는 내 모모몽" style={{ left: `${roomPosition.x}%`, top: `${roomPosition.y}%` }} />
         {building.name === '모모몽의 집' && <>
-          <button className="world-hotspot home-bed-spot" onClick={(event) => { event.stopPropagation(); walkTo(23, 55, () => setNotice('구름 침대가 폭신폭신해요!')); }}><span>구름 침대</span></button>
-          <button className="world-hotspot home-toy-spot" onClick={(event) => { event.stopPropagation(); walkTo(61, 35, () => setNotice('장난감 친구들이 가지런히 기다리고 있어요!')); }}><span>장난감 선반</span></button>
-          <button className="world-hotspot home-sofa-spot" onClick={(event) => { event.stopPropagation(); walkTo(82, 55, () => setNotice('리본 소파에서 잠깐 쉬었어요!')); }}><span>리본 소파</span></button>
+          <button className="world-hotspot home-bed-spot" onClick={(event) => { event.stopPropagation(); walkTo(23, 55, () => setNotice('구름 침대에 폴짝 누워 쉬었어요!'), 'rest'); }}><span>구름 침대</span></button>
+          <button className="world-hotspot home-toy-spot" onClick={(event) => { event.stopPropagation(); walkTo(61, 35, () => setNotice('장난감 친구들과 신나게 놀았어요!'), 'play'); }}><span>장난감 선반</span></button>
+          <button className="world-hotspot home-sofa-spot" onClick={(event) => { event.stopPropagation(); walkTo(82, 55, () => setNotice('리본 소파에 앉아 발을 흔들었어요!'), 'rest'); }}><span>리본 소파</span></button>
           <div className="room-owned-tray">{owned.length ? owned.map((id) => { const item = items.find((entry) => entry.id === id); return item && <button key={id} onClick={() => setNotice(`${item.name}도 집 안에 예쁘게 놓여 있어요!`)}>{item.name}</button>; }) : <span>바닥을 눌러 집 안을 걸어 보세요</span>}</div>
         </>}
         {building.name === '구름정원' && <>
           <img className="room-npc garden-npc" src="/popo.png" alt="정원에서 기다리는 포포" />
           <div className="room-quest-bubble"><strong>포포의 정원 임무</strong><span>꽃밭 세 곳까지 걸어가 직접 물을 주세요 · 보상 토큰 3개</span></div>
-          {[{ x: 77, y: 36, label: '분홍 튤립' }, { x: 80, y: 52, label: '노란 데이지' }, { x: 79, y: 69, label: '벚꽃 화단' }].map((flower, index) => <button key={flower.label} className={`world-hotspot flower-spot flower-${index} ${watered.includes(index) ? 'watered' : ''}`} onClick={(event) => { event.stopPropagation(); walkTo(flower.x - 9, flower.y + 7, () => waterFlower(index)); }} aria-label={`${flower.label}에 물주기`}><span>{watered.includes(index) ? '물을 줬어요' : `${flower.label} 물주기`}</span></button>)}
+          {[{ x: 77, y: 36, label: '분홍 튤립' }, { x: 80, y: 52, label: '노란 데이지' }, { x: 79, y: 69, label: '벚꽃 화단' }].map((flower, index) => <button key={flower.label} className={`world-hotspot flower-spot flower-${index} ${watered.includes(index) ? 'watered' : ''}`} onClick={(event) => { event.stopPropagation(); walkTo(flower.x - 9, flower.y + 7, () => waterFlower(index), 'water'); }} aria-label={`${flower.label}에 물주기`}><span>{watered.includes(index) ? '물을 줬어요' : `${flower.label} 물주기`}</span></button>)}
         </>}
         {building.name === '별빛우체국' && <>
           <img className="room-npc post-npc" src="/durikong.png" alt="우체국의 두리콩" />
-          <button className="world-hotspot post-mail-spot" onClick={(event) => { event.stopPropagation(); walkTo(25, 58, openLetter); }}><span>{letterOpened ? '오늘의 칭찬 편지' : '도착한 편지 열기'}</span></button>
-          <button className="world-hotspot post-write-spot" onClick={(event) => { event.stopPropagation(); walkTo(76, 57, () => setPostMode('write')); }}><span>그림 손편지 쓰기</span></button>
+          <button className="world-hotspot post-mail-spot" onClick={(event) => { event.stopPropagation(); walkTo(25, 58, openLetter, 'read'); }}><span>{letterOpened ? '오늘의 칭찬 편지' : '도착한 편지 열기'}</span></button>
+          <button className="world-hotspot post-write-spot" onClick={(event) => { event.stopPropagation(); walkTo(76, 57, () => setPostMode('write'), 'write'); }}><span>그림 손편지 쓰기</span></button>
           {sentLetters.length > 0 && <div className="room-sent-count">보낸 손편지 {sentLetters.length}통</div>}
           {postMode === 'write' && <div className="room-action-panel"><header><strong>알록달록 그림 손편지</strong><button onClick={() => setPostMode('read')}>닫기</button></header><div className="letter-composer"><DrawingPad onDraw={setDrawingData} /><textarea value={letterText} onChange={(event) => setLetterText(event.target.value)} maxLength={100} placeholder="엄마 아빠에게 전하고 싶은 말을 직접 써 보세요…" aria-label="손편지 내용" /><button className="send-letter" onClick={sendLetter}>두리콩에게 전해주기</button></div></div>}
         </>}
