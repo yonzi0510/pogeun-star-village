@@ -11,6 +11,12 @@ const residents = [
   { name: '루루별', sprite: '/lurustar.png', portrait: 'p3', color: 'lavender', activity: '별빛을 찾으러 걷는 중' },
 ];
 
+const friendDialogues: Record<string, string[]> = {
+  '루루별': ['어서 와, 모모몽! 네 방의 별빛이 오늘 더 반짝여.', '같이 장난감 별자리를 만들어 볼래?', '네가 놀러 오니까 집이 훨씬 포근해졌어!'],
+  '포포': ['정원에 온 걸 환영해! 꽃들이 네 발소리를 듣고 깨어났어.', '물을 머금은 꽃은 밤이 되면 작은 별빛을 낸대.', '다음에는 무지개 씨앗도 함께 심어 보자!'],
+  '두리콩': ['반가워! 오늘도 따뜻한 편지가 도착했어.', '그림 편지는 글자를 몰라도 마음이 바로 전해진대.', '네 편지는 내가 소중히 안고 꼭 배달해 줄게!'],
+};
+
 const items = [
   { id: 'swing', name: '구름 그네', emoji: '☁️', cost: 10 },
   { id: 'lamp', name: '별빛 램프', emoji: '🌟', cost: 12 },
@@ -83,7 +89,8 @@ export default function Home() {
   const villageMotionTimer = useRef<number | null>(null);
   const [roomWalking, setRoomWalking] = useState(false);
   const [villageWalking, setVillageWalking] = useState(false);
-  const [roomAction, setRoomAction] = useState<'water' | 'read' | 'write' | 'rest' | 'play' | null>(null);
+  const [roomAction, setRoomAction] = useState<'water' | 'read' | 'write' | 'rest' | 'play' | 'talk' | null>(null);
+  const [roomDialogue, setRoomDialogue] = useState<{ friend: string; index: number } | null>(null);
   const [watered, setWatered] = useState<number[]>([]);
   const [letterOpened, setLetterOpened] = useState(false);
   const [postMode, setPostMode] = useState<'read' | 'write'>('read');
@@ -135,13 +142,6 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [tokens, starlight, owned, watered, letterOpened, sentLetters, collectedPets, activePet, petLove, positions, insertedTokens]);
   useEffect(() => {
-    const timer = window.setInterval(() => setPositions((current) => current.map((position, index) => index === 1 ? position : ({
-      x: Math.max(22, Math.min(76, position.x + (Math.random() - .5) * 15)),
-      y: Math.max(52, Math.min(79, position.y + (Math.random() - .5) * 10)),
-    }))), 2200);
-    return () => window.clearInterval(timer);
-  }, []);
-  useEffect(() => {
     const timer = window.setInterval(() => setGameMinutes((value) => (value + 10) % 1440), 4000);
     return () => window.clearInterval(timer);
   }, []);
@@ -160,7 +160,7 @@ export default function Home() {
       const delta = event.key === 'ArrowLeft' ? [-3, 0] : event.key === 'ArrowRight' ? [3, 0] : event.key === 'ArrowUp' ? [0, -3] : event.key === 'ArrowDown' ? [0, 3] : null;
       if (!delta) return;
       event.preventDefault();
-      setPositions((current) => current.map((position, index) => index === 1 ? { x: Math.max(15, Math.min(85, position.x + delta[0])), y: Math.max(42, Math.min(84, position.y + delta[1])) } : position));
+      setPositions((current) => current.map((position, index) => index === 1 ? { x: Math.max(8, Math.min(92, position.x + delta[0])), y: Math.max(25, Math.min(88, position.y + delta[1])) } : position));
       setVillageWalking(true);
       if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
       villageMotionTimer.current = window.setTimeout(() => setVillageWalking(false), 360);
@@ -177,9 +177,9 @@ export default function Home() {
   const timeLabel = `${String(Math.floor(gameMinutes / 60)).padStart(2, '0')}:${String(gameMinutes % 60).padStart(2, '0')}`;
 
   function movePlayer(event: PointerEvent<HTMLDivElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(15, Math.min(85, ((event.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(42, Math.min(84, ((event.clientY - rect.top) / rect.height) * 100));
+    const rect = event.currentTarget.parentElement?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
+    const x = Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(25, Math.min(88, ((event.clientY - rect.top) / rect.height) * 100));
     setPositions((current) => current.map((position, index) => index === 1 ? { x, y } : position));
     setSelected('모모몽');
     setVillageWalking(true);
@@ -189,6 +189,7 @@ export default function Home() {
 
   function enterBuilding(nextBuilding: { name: string; icon: string; message: string }) {
     setShowPraise(false);
+    setRoomDialogue(null);
     setRoomPosition({ x: 50, y: 78 });
     setPostMode('read');
     setBuilding(nextBuilding);
@@ -196,17 +197,17 @@ export default function Home() {
   }
 
   function moveInside(event: PointerEvent<HTMLDivElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = event.currentTarget.parentElement?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
     setRoomPosition({
       x: Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100)),
       y: Math.max(24, Math.min(86, ((event.clientY - rect.top) / rect.height) * 100)),
     });
-    setRoomAction(null); setRoomWalking(true);
+    setRoomDialogue(null); setRoomAction(null); setRoomWalking(true);
     if (roomMotionTimer.current) window.clearTimeout(roomMotionTimer.current);
     roomMotionTimer.current = window.setTimeout(() => setRoomWalking(false), 680);
   }
 
-  function walkTo(x: number, y: number, action: () => void, actionType: 'water' | 'read' | 'write' | 'rest' | 'play') {
+  function walkTo(x: number, y: number, action: () => void, actionType: 'water' | 'read' | 'write' | 'rest' | 'play' | 'talk') {
     if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current);
     if (roomMotionTimer.current) window.clearTimeout(roomMotionTimer.current);
     setRoomAction(null); setRoomWalking(true); setRoomPosition({ x, y });
@@ -214,6 +215,15 @@ export default function Home() {
       setRoomWalking(false); setRoomAction(actionType); action();
       roomMotionTimer.current = window.setTimeout(() => setRoomAction(null), 1250);
     }, 620);
+  }
+
+  function talkInside(friend: string, x: number, y: number) {
+    walkTo(x, y, () => setRoomDialogue({ friend, index: 0 }), 'talk');
+  }
+
+  function continueDialogue() {
+    setRoomDialogue((current) => current ? { ...current, index: (current.index + 1) % friendDialogues[current.friend].length } : null);
+    setRoomAction('talk');
   }
 
   function talkTo(name: string, index: number, activity: string) {
@@ -340,15 +350,15 @@ export default function Home() {
 
         <section className={`home-grid ${tab !== '마을' ? 'background-world' : ''}`} aria-hidden={tab !== '마을'}>
           <div className="village-card illustrated">
-            <img src="/village-map.png" alt="산책할 수 있는 포근별 마을 광장" />
+            <img src="/village-map-expanded-v2.png" alt="산책할 수 있는 넓어진 포근별 마을" />
             <div className="map-walk-layer" onPointerDown={movePlayer} role="application" aria-label="눌러서 모모몽을 이동시키는 마을 지도" />
             <div className="village-heading"><span className="stage-pill">작은 언덕 · 1단계</span><h2>우리 마을이 자라고 있어요!</h2></div>
-            <button className="map-hit house-hit" aria-label="모모몽의 집에 들어가기" onClick={() => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다닐 수 있는 포근한 집이에요.' })} />
-            <button className="map-hit garden-hit" aria-label="구름정원에 들어가기" onClick={() => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 꽃에 직접 물을 주는 정원이에요.' })} />
-            <button className="map-hit post-hit" aria-label="별빛우체국에 들어가기" onClick={() => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지함과 그림 책상까지 직접 걸어가는 우체국이에요.' })} />
-            <div className="moving-layer">{residents.map((entry, index) => <button key={entry.name} className={`moving-character ${index === 1 ? 'player' : 'npc'} ${index === 1 && villageWalking ? 'walking' : ''} ${selected === entry.name ? 'selected' : ''}`} style={{ left: `${positions[index]?.x ?? 50}%`, top: `${positions[index]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); index === 1 ? setNotice('지도를 눌러 모모몽을 움직여 보세요!') : talkTo(entry.name, index, entry.activity); }} aria-label={index === 1 ? '내 캐릭터 모모몽' : `${entry.name}에게 다가가 말 걸기`}><img src={entry.sprite} alt="" /><span>{index === 1 ? '내 모모몽' : entry.name}</span></button>)}</div>
+            <button className="map-hit map-entry house-hit" aria-label="모모몽의 집에 들어가기" onClick={() => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다니며 루루별과 이야기할 수 있어요.' })}><span>집 들어가기</span></button>
+            <button className="map-hit map-entry garden-hit" aria-label="구름정원에 들어가기" onClick={() => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 물을 주고 포포와 이야기하는 정원이에요.' })}><span>정원 들어가기</span></button>
+            <button className="map-hit map-entry post-hit" aria-label="별빛우체국에 들어가기" onClick={() => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지를 읽고 그리며 두리콩과 이야기하는 우체국이에요.' })}><span>우체국 들어가기</span></button>
+            <div className="moving-layer"><button className={`moving-character player ${villageWalking ? 'walking' : ''} selected`} style={{ left: `${positions[1]?.x ?? 50}%`, top: `${positions[1]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); setNotice('넓어진 마을 바닥을 눌러 모모몽을 움직여 보세요!'); }} aria-label="내 캐릭터 모모몽"><img src="/momomong.png" alt="" /><span>내 모모몽</span></button></div>
             <div className="move-guide">지도를 눌러 이동 · 방향키도 가능</div>
-            <div className="speech"><strong>{resident?.name}</strong><span>{resident?.activity}</span></div>
+            <div className="speech"><strong>모모몽</strong><span>넓어진 마을을 탐험하는 중</span></div>
           </div>
           <aside className="side-panel">
             <button className="praise-mail-toggle" onClick={() => setShowPraise((value) => !value)} aria-expanded={showPraise}><i aria-hidden="true" /><span>칭찬 편지</span><strong>1</strong></button>
@@ -372,9 +382,11 @@ export default function Home() {
       {building && <section className={`room-world ${building.name === '모모몽의 집' ? 'home-world' : building.name === '구름정원' ? 'garden-world' : 'post-world'}`} role="dialog" aria-modal="true" aria-label={building.name}>
         <img className="room-world-art" src={building.name === '모모몽의 집' ? '/room-home-v2.png' : building.name === '구름정원' ? '/room-garden-v2.png' : '/room-post-v2.png'} alt={`${building.name} 안의 걸어 다닐 수 있는 공간`} />
         <div className="room-walk-layer" onPointerDown={moveInside} role="application" aria-label={`${building.name} 바닥을 눌러 모모몽 이동`} />
-        <header className="room-world-hud"><div><small>직접 걸어 다니는 공간</small><strong>{building.name}</strong></div><p>{building.message}</p><button onClick={() => { if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current); setPostMode('read'); setBuilding(null); }} aria-label="건물에서 나가 마을로 돌아가기">마을로 나가기</button></header>
+        <header className="room-world-hud"><div><small>직접 걸어 다니는 공간</small><strong>{building.name}</strong></div><p>{building.message}</p><button onClick={() => { if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current); setRoomDialogue(null); setPostMode('read'); setBuilding(null); }} aria-label="건물에서 나가 마을로 돌아가기">마을로 나가기</button></header>
         <img className={`room-player ${roomWalking ? 'walking' : ''} ${roomAction ? `acting ${roomAction}` : ''}`} src="/momomong.png" alt="움직이는 내 모모몽" style={{ left: `${roomPosition.x}%`, top: `${roomPosition.y}%` }} />
         {building.name === '모모몽의 집' && <>
+          <img className="room-npc home-npc" src="/lurustar.png" alt="집에 놀러 온 루루별" />
+          <button className="world-hotspot friend-talk-spot home-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('루루별', 55, 48); }} aria-label="루루별과 이야기하기"><span>루루별과 이야기</span></button>
           <button className="world-hotspot home-bed-spot" onClick={(event) => { event.stopPropagation(); walkTo(23, 55, () => setNotice('구름 침대에 폴짝 누워 쉬었어요!'), 'rest'); }}><span>구름 침대</span></button>
           <button className="world-hotspot home-toy-spot" onClick={(event) => { event.stopPropagation(); walkTo(61, 35, () => setNotice('장난감 친구들과 신나게 놀았어요!'), 'play'); }}><span>장난감 선반</span></button>
           <button className="world-hotspot home-sofa-spot" onClick={(event) => { event.stopPropagation(); walkTo(82, 55, () => setNotice('리본 소파에 앉아 발을 흔들었어요!'), 'rest'); }}><span>리본 소파</span></button>
@@ -382,16 +394,19 @@ export default function Home() {
         </>}
         {building.name === '구름정원' && <>
           <img className="room-npc garden-npc" src="/popo.png" alt="정원에서 기다리는 포포" />
+          <button className="world-hotspot friend-talk-spot garden-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('포포', 34, 55); }} aria-label="포포와 이야기하기"><span>포포와 이야기</span></button>
           <div className="room-quest-bubble"><strong>포포의 정원 임무</strong><span>꽃밭 세 곳까지 걸어가 직접 물을 주세요 · 보상 토큰 3개</span></div>
           {[{ x: 77, y: 36, label: '분홍 튤립' }, { x: 80, y: 52, label: '노란 데이지' }, { x: 79, y: 69, label: '벚꽃 화단' }].map((flower, index) => <button key={flower.label} className={`world-hotspot flower-spot flower-${index} ${watered.includes(index) ? 'watered' : ''}`} onClick={(event) => { event.stopPropagation(); walkTo(flower.x - 9, flower.y + 7, () => waterFlower(index), 'water'); }} aria-label={`${flower.label}에 물주기`}><span>{watered.includes(index) ? '물을 줬어요' : `${flower.label} 물주기`}</span></button>)}
         </>}
         {building.name === '별빛우체국' && <>
           <img className="room-npc post-npc" src="/durikong.png" alt="우체국의 두리콩" />
+          <button className="world-hotspot friend-talk-spot post-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('두리콩', 54, 45); }} aria-label="두리콩과 이야기하기"><span>두리콩과 이야기</span></button>
           <button className="world-hotspot post-mail-spot" onClick={(event) => { event.stopPropagation(); walkTo(25, 58, openLetter, 'read'); }}><span>{letterOpened ? '오늘의 칭찬 편지' : '도착한 편지 열기'}</span></button>
           <button className="world-hotspot post-write-spot" onClick={(event) => { event.stopPropagation(); walkTo(76, 57, () => setPostMode('write'), 'write'); }}><span>그림 손편지 쓰기</span></button>
           {sentLetters.length > 0 && <div className="room-sent-count">보낸 손편지 {sentLetters.length}통</div>}
           {postMode === 'write' && <div className="room-action-panel"><header><strong>알록달록 그림 손편지</strong><button onClick={() => setPostMode('read')}>닫기</button></header><div className="letter-composer"><DrawingPad onDraw={setDrawingData} /><textarea value={letterText} onChange={(event) => setLetterText(event.target.value)} maxLength={100} placeholder="엄마 아빠에게 전하고 싶은 말을 직접 써 보세요…" aria-label="손편지 내용" /><button className="send-letter" onClick={sendLetter}>두리콩에게 전해주기</button></div></div>}
         </>}
+        {roomDialogue && <div className="friend-dialogue" role="dialog" aria-label={`${roomDialogue.friend}와 대화`}><img src={residents.find((entry) => entry.name === roomDialogue.friend)?.sprite} alt="" /><div><small>{roomDialogue.friend}와 이야기 중</small><p>“{friendDialogues[roomDialogue.friend][roomDialogue.index]}”</p><div><button onClick={continueDialogue}>더 이야기하기</button><button onClick={() => { setRoomDialogue(null); setRoomAction(null); }}>인사하고 끝내기</button></div></div></div>}
         <div className="room-move-guide">바닥을 눌러 이동 · 반짝이는 장소에 가까이 가기</div>
       </section>}
       <div className={`rotate-device ${allowPortrait ? 'dismissed' : ''}`} role="dialog" aria-label="가로 화면 권장 안내"><div className="rotate-phone" aria-hidden="true"><i /></div><h2>가로 화면으로 즐겨요</h2><p>포근별 마을은 가로 화면에서 가장 넓고 편하게 움직일 수 있어요.</p><button onClick={requestLandscape}>가로 전체화면 시작</button><button className="portrait-continue" onClick={() => setAllowPortrait(true)}>세로 화면으로 계속</button></div>
