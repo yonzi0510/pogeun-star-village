@@ -24,6 +24,65 @@ export type GameState = {
   ownedItemIds: string[];
 };
 
+export type VillageStage = {
+  id: string;
+  name: string;
+  threshold: number;
+  unlockedResidents: string[];
+  unlockedBuildings: string[];
+};
+
+export type VillageProgress = {
+  stageIndex: number;
+  stage: VillageStage;
+  nextStage: VillageStage | null;
+  nextThreshold: number | null;
+  progressToNext: number;
+};
+
+// MVP는 기획서의 5단계 중 처음 세 단계만 구현합니다.
+export const VILLAGE_STAGES: VillageStage[] = [
+  {
+    id: 'small-hill',
+    name: '작은 언덕',
+    threshold: 0,
+    unlockedResidents: ['모모몽'],
+    unlockedBuildings: ['모모몽의 집'],
+  },
+  {
+    id: 'cozy-neighbors',
+    name: '포근한 이웃',
+    threshold: 500,
+    unlockedResidents: ['모모몽', '포포', '두리콩'],
+    unlockedBuildings: ['모모몽의 집', '구름정원', '별빛우체국'],
+  },
+  {
+    id: 'starlight-village',
+    name: '별빛 마을',
+    threshold: 1200,
+    unlockedResidents: ['모모몽', '포포', '두리콩', '루루별'],
+    unlockedBuildings: ['모모몽의 집', '구름정원', '별빛우체국'],
+  },
+];
+
+export function getVillageProgress(starlight: number): VillageProgress {
+  let stageIndex = 0;
+  for (let i = 0; i < VILLAGE_STAGES.length; i += 1) {
+    if (starlight >= VILLAGE_STAGES[i]!.threshold) {
+      stageIndex = i;
+    }
+  }
+
+  const stage = VILLAGE_STAGES[stageIndex]!;
+  const nextStage = VILLAGE_STAGES[stageIndex + 1] ?? null;
+  const nextThreshold = nextStage ? nextStage.threshold : null;
+  const progressToNext = nextStage
+    ? Math.min(1, Math.max(0, (starlight - stage.threshold) / (nextStage.threshold - stage.threshold)))
+    : 1;
+
+  return { stageIndex, stage, nextStage, nextThreshold, progressToNext };
+}
+
 export type GameAction =
   | { type: 'AWARD_PRAISE'; event: PraiseEvent }
   | { type: 'BUY_ITEM'; itemId: string; itemName: string; cost: number; transactionId: string; createdAt: string };

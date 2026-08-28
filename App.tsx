@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { colors, shadow } from './src/theme';
-import { gameReducer, initialGameState } from './src/game/state';
+import { gameReducer, getVillageProgress, initialGameState } from './src/game/state';
 
 type Tab = '마을' | '친구' | '꾸미기' | '앨범';
 
@@ -28,6 +28,12 @@ const tabs: Array<{ label: Tab; emoji: string }> = [
   { label: '친구', emoji: '🐰' },
   { label: '꾸미기', emoji: '🖌️' },
   { label: '앨범', emoji: '📖' },
+];
+
+const buildings = [
+  { label: '모모몽의 집', emoji: '🏡', tint: '#FFF0C2' },
+  { label: '구름정원', emoji: '🌳', tint: '#DDF6D9' },
+  { label: '별빛우체국', emoji: '📮', tint: '#E5E3FF' },
 ];
 
 const decorationItems = [
@@ -62,6 +68,19 @@ function Building({ emoji, label, tint }: { emoji: string; label: string; tint: 
   );
 }
 
+function LockedBuilding({ nextStageName }: { nextStageName: string }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => Alert.alert('아직 구름에 가려져 있어요', `별빛을 더 모으면 ${nextStageName} 구역에서 만날 수 있어요!`)}
+      style={({ pressed }) => [styles.building, styles.buildingLocked, pressed && styles.pressed]}
+    >
+      <Text style={styles.buildingEmoji}>☁️</Text>
+      <Text style={styles.buildingLockIcon}>🔒</Text>
+    </Pressable>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('마을');
   const [selectedResident, setSelectedResident] = useState('모모몽');
@@ -75,6 +94,18 @@ export default function App() {
     [selectedResident],
   );
   const recentPraise = gameState.praiseEvents[0]!;
+
+  const villageProgress = useMemo(() => getVillageProgress(gameState.starlight), [gameState.starlight]);
+  const unlockedResidents = villageProgress.stage.unlockedResidents;
+  const unlockedBuildings = villageProgress.stage.unlockedBuildings;
+
+  const previousStageIndexRef = useRef(villageProgress.stageIndex);
+  useEffect(() => {
+    if (villageProgress.stageIndex > previousStageIndexRef.current) {
+      Alert.alert('마을이 성장했어요! 🎉', `${villageProgress.stage.name} 구역이 열렸어요!`);
+    }
+    previousStageIndexRef.current = villageProgress.stageIndex;
+  }, [villageProgress.stageIndex, villageProgress.stage.name]);
 
   const purchaseItem = (item: (typeof decorationItems)[number]) => {
     if (gameState.ownedItemIds.includes(item.id)) {
@@ -110,32 +141,52 @@ export default function App() {
     <View style={[styles.villageCard, isWideLayout && styles.villageCardWide]}>
       <View style={[styles.cloud, styles.cloudLeft]}><Text style={styles.cloudText}>☁️</Text></View>
       <View style={[styles.cloud, styles.cloudRight]}><Text style={styles.cloudText}>☁️</Text></View>
-      <Text style={styles.areaBadge}>작은 언덕 · 1단계</Text>
+      <Text style={styles.areaBadge}>{villageProgress.stage.name} · {villageProgress.stageIndex + 1}단계</Text>
       <Text style={[styles.villageTitle, isTablet && styles.villageTitleTablet]}>우리 마을이 자라고 있어요!</Text>
 
       <View style={[styles.buildingsRow, isTablet && styles.buildingsRowTablet]}>
-        <Building emoji="🌳" label="구름정원" tint="#DDF6D9" />
-        <Building emoji="🏡" label="모모몽의 집" tint="#FFF0C2" />
-        <Building emoji="📮" label="별빛우체국" tint="#E5E3FF" />
+        {buildings.map((item) =>
+          unlockedBuildings.includes(item.label) ? (
+            <Building key={item.label} emoji={item.emoji} label={item.label} tint={item.tint} />
+          ) : (
+            <LockedBuilding key={item.label} nextStageName={villageProgress.nextStage?.name ?? '다음'} />
+          ),
+        )}
       </View>
 
       <View style={[styles.plaza, isTablet && styles.plazaTablet]}>
-        {residents.map((resident) => (
-          <Pressable
-            key={resident.name}
-            onPress={() => setSelectedResident(resident.name)}
-            style={({ pressed }) => [
-              styles.resident,
-              isTablet && styles.residentTablet,
-              { backgroundColor: resident.color },
-              selectedResident === resident.name && styles.residentSelected,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={[styles.residentEmoji, isTablet && styles.residentEmojiTablet]}>{resident.emoji}</Text>
-            <Text style={styles.residentName}>{resident.name}</Text>
-          </Pressable>
-        ))}
+        {residents.map((resident) => {
+          const unlocked = unlockedResidents.includes(resident.name);
+          if (!unlocked) {
+            return (
+              <Pressable
+                key={resident.name}
+                onPress={() =>
+                  Alert.alert('아직 만나지 못한 주민이에요', `별빛을 더 모으면 ${resident.name}을(를) 만날 수 있어요!`)
+                }
+                style={[styles.resident, isTablet && styles.residentTablet, styles.residentLocked]}
+              >
+                <Text style={[styles.residentEmoji, isTablet && styles.residentEmojiTablet]}>❓</Text>
+              </Pressable>
+            );
+          }
+          return (
+            <Pressable
+              key={resident.name}
+              onPress={() => setSelectedResident(resident.name)}
+              style={({ pressed }) => [
+                styles.resident,
+                isTablet && styles.residentTablet,
+                { backgroundColor: resident.color },
+                selectedResident === resident.name && styles.residentSelected,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={[styles.residentEmoji, isTablet && styles.residentEmojiTablet]}>{resident.emoji}</Text>
+              <Text style={styles.residentName}>{resident.name}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <View style={styles.speechBubble}>
@@ -148,13 +199,21 @@ export default function App() {
   const progressPanel = (
     <View style={styles.progressCard}>
       <View style={styles.progressHeader}>
-        <Text style={styles.progressTitle}>다음 구역까지</Text>
-        <Text style={styles.progressValue}>320 / 500 별빛</Text>
+        <Text style={styles.progressTitle}>{villageProgress.nextStage ? '다음 구역까지' : '최고 단계 달성'}</Text>
+        <Text style={styles.progressValue}>
+          {villageProgress.nextThreshold !== null
+            ? `${gameState.starlight} / ${villageProgress.nextThreshold} 별빛`
+            : `${gameState.starlight} 별빛`}
+        </Text>
       </View>
       <View style={styles.progressTrack}>
-        <View style={styles.progressFill} />
+        <View style={[styles.progressFill, { width: `${villageProgress.progressToNext * 100}%` }]} />
       </View>
-      <Text style={styles.progressHint}>별빛이 모이면 포근한 이웃 구역의 구름이 걷혀요.</Text>
+      <Text style={styles.progressHint}>
+        {villageProgress.nextStage
+          ? `별빛이 모이면 ${villageProgress.nextStage.name} 구역의 구름이 걷혀요.`
+          : '지금까지 만든 모든 구역이 열렸어요! 새로운 이야기를 기대해주세요.'}
+      </Text>
     </View>
   );
 
@@ -165,17 +224,34 @@ export default function App() {
 
       {activeTab === '친구' && (
         <View style={styles.friendGrid}>
-          {residents.map((resident) => (
-            <Pressable
-              key={resident.name}
-              onPress={() => Alert.alert(resident.name, resident.activity)}
-              style={({ pressed }) => [styles.friendCard, { backgroundColor: resident.color }, pressed && styles.pressed]}
-            >
-              <Text style={styles.friendEmoji}>{resident.emoji}</Text>
-              <Text style={styles.friendName}>{resident.name}</Text>
-              <Text style={styles.friendActivity}>{resident.activity}</Text>
-            </Pressable>
-          ))}
+          {residents.map((resident) => {
+            const unlocked = unlockedResidents.includes(resident.name);
+            if (!unlocked) {
+              return (
+                <Pressable
+                  key={resident.name}
+                  onPress={() =>
+                    Alert.alert('아직 만나지 못한 주민이에요', `별빛을 더 모으면 ${resident.name}을(를) 만날 수 있어요!`)
+                  }
+                  style={[styles.friendCard, styles.friendCardLocked]}
+                >
+                  <Text style={styles.friendEmoji}>❓</Text>
+                  <Text style={styles.friendActivity}>별빛을 더 모으면 만나요</Text>
+                </Pressable>
+              );
+            }
+            return (
+              <Pressable
+                key={resident.name}
+                onPress={() => Alert.alert(resident.name, resident.activity)}
+                style={({ pressed }) => [styles.friendCard, { backgroundColor: resident.color }, pressed && styles.pressed]}
+              >
+                <Text style={styles.friendEmoji}>{resident.emoji}</Text>
+                <Text style={styles.friendName}>{resident.name}</Text>
+                <Text style={styles.friendActivity}>{resident.activity}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
@@ -332,11 +408,14 @@ const styles = StyleSheet.create({
   building: { flex: 1, minHeight: 92, borderRadius: 22, padding: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFFFFFC7', ...shadow },
   buildingEmoji: { fontSize: 36 },
   buildingLabel: { marginTop: 3, color: colors.cocoa, fontSize: 10, fontWeight: '800', textAlign: 'center' },
+  buildingLocked: { backgroundColor: '#E7EEF5', opacity: 0.85 },
+  buildingLockIcon: { position: 'absolute', bottom: 8, fontSize: 16 },
   plaza: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10, backgroundColor: '#F5DFA8', borderColor: '#FFF4CF', borderWidth: 5, borderRadius: 80, paddingVertical: 20, paddingHorizontal: 12, marginTop: 18 },
   plazaTablet: { gap: 18, paddingVertical: 28, marginTop: 24 },
   resident: { width: 63, height: 76, borderRadius: 28, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: colors.white },
   residentTablet: { width: 82, height: 96, borderRadius: 36 },
   residentSelected: { transform: [{ translateY: -7 }], borderColor: colors.butter },
+  residentLocked: { backgroundColor: '#E7EEF5', opacity: 0.7 },
   residentEmoji: { fontSize: 34 },
   residentEmojiTablet: { fontSize: 46 },
   residentName: { color: colors.cocoa, fontSize: 10, fontWeight: '900', marginTop: 2 },
@@ -362,6 +441,7 @@ const styles = StyleSheet.create({
   secondaryTitle: { color: colors.cocoa, fontSize: 26, fontWeight: '900', marginTop: 3, marginBottom: 18 },
   friendGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   friendCard: { flexGrow: 1, flexBasis: 180, minHeight: 190, borderRadius: 26, alignItems: 'center', justifyContent: 'center', padding: 18, borderWidth: 3, borderColor: colors.white },
+  friendCardLocked: { backgroundColor: '#E7EEF5', borderStyle: 'dashed' },
   friendEmoji: { fontSize: 60 },
   friendName: { color: colors.cocoa, fontSize: 18, fontWeight: '900', marginTop: 8 },
   friendActivity: { color: colors.muted, fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 5 },

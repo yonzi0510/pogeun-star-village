@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { awardPraise, buyItem, initialGameState } from './state.ts';
+import { awardPraise, buyItem, getVillageProgress, initialGameState } from './state.ts';
 
 test('칭찬은 토큰과 별빛을 함께 증가시킨다', () => {
   const next = awardPraise(initialGameState, {
@@ -48,4 +48,38 @@ test('잔액보다 비싼 아이템은 구매할 수 없다', () => {
     }),
     /부족/,
   );
+});
+
+test('별빛이 적으면 작은 언덕 단계이고 모모몽만 등장한다', () => {
+  const progress = getVillageProgress(0);
+
+  assert.equal(progress.stageIndex, 0);
+  assert.equal(progress.stage.name, '작은 언덕');
+  assert.deepEqual(progress.stage.unlockedResidents, ['모모몽']);
+  assert.equal(progress.nextThreshold, 500);
+  assert.equal(progress.progressToNext, 0);
+});
+
+test('별빛 500 이상이면 포근한 이웃 단계로 성장한다', () => {
+  const progress = getVillageProgress(500);
+
+  assert.equal(progress.stageIndex, 1);
+  assert.equal(progress.stage.name, '포근한 이웃');
+  assert.deepEqual(progress.stage.unlockedResidents, ['모모몽', '포포', '두리콩']);
+});
+
+test('단계 사이에서는 다음 단계까지의 진행률을 계산한다', () => {
+  const progress = getVillageProgress(320);
+
+  assert.equal(progress.stageIndex, 0);
+  assert.equal(progress.progressToNext, 320 / 500);
+});
+
+test('마지막 구현 단계에 도달하면 다음 단계가 없다', () => {
+  const progress = getVillageProgress(9999);
+
+  assert.equal(progress.stageIndex, 2);
+  assert.equal(progress.nextStage, null);
+  assert.equal(progress.nextThreshold, null);
+  assert.equal(progress.progressToNext, 1);
 });
