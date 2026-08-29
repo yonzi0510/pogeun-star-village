@@ -15,7 +15,16 @@ import {
 import { colors, shadow } from './src/theme';
 import { getActiveSeasonalEvent } from './src/game/calendar';
 import { getResidentActivity } from './src/game/schedule';
-import { gameReducer, getVillageProgress, initialGameState, isVillageActivityReady, VILLAGE_ACTIVITIES } from './src/game/state';
+import {
+  GACHA_COST,
+  GACHA_POOL,
+  gameReducer,
+  getVillageProgress,
+  initialGameState,
+  isVillageActivityReady,
+  pickGachaItem,
+  VILLAGE_ACTIVITIES,
+} from './src/game/state';
 
 type Tab = '마을' | '친구' | '꾸미기' | '앨범';
 
@@ -180,6 +189,27 @@ export default function App() {
       createdAt: new Date().toISOString(),
     });
     Alert.alert('참 잘했어요! 🌟', `${activity.name}을(를) 실천해서 칭찬 토큰 +${activity.tokens}을 받았어요.`);
+  };
+
+  const handleDrawGacha = () => {
+    if (gameState.tokenBalance < GACHA_COST) {
+      Alert.alert('토큰이 부족해요', `별씨앗 뽑기에는 칭찬 토큰 ${GACHA_COST}개가 필요해요.`);
+      return;
+    }
+    const item = pickGachaItem(Math.random());
+    const isDuplicate = gameState.ownedGachaItemIds.includes(item.id);
+    dispatch({
+      type: 'DRAW_GACHA',
+      itemId: item.id,
+      transactionId: `gacha-${item.id}-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    });
+    Alert.alert(
+      isDuplicate ? `${item.emoji} 또 만났어요!` : `${item.emoji} 짠! 새 친구가 왔어요!`,
+      isDuplicate
+        ? `${item.name}을(를) 또 뽑았어요. 겹치는 아이템이라 토큰을 조금 돌려받았어요.`
+        : `${item.name}을(를) 처음 만났어요!`,
+    );
   };
 
   const praisePanel = (
@@ -376,22 +406,55 @@ export default function App() {
       )}
 
       {activeTab === '꾸미기' && (
-        <View style={styles.itemGrid}>
-          {decorationItems.map((item) => {
-            const owned = gameState.ownedItemIds.includes(item.id);
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => purchaseItem(item)}
-                style={({ pressed }) => [styles.itemCard, { backgroundColor: item.color }, pressed && styles.pressed]}
-              >
-                <Text style={styles.itemEmoji}>{item.emoji}</Text>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={[styles.itemCost, owned && styles.itemOwned]}>{owned ? '보유 중' : `⭐ ${item.cost}`}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <>
+          <View style={styles.gachaCard}>
+            <Text style={styles.gachaTitle}>별씨앗 뽑기 🌠</Text>
+            <Text style={styles.gachaSubtitle}>
+              칭찬 토큰 {GACHA_COST}개로 별씨앗을 심으면 의상·장난감 친구를 만나요.
+            </Text>
+            <Pressable
+              onPress={handleDrawGacha}
+              style={({ pressed }) => [styles.gachaButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.gachaButtonText}>⭐ {GACHA_COST}개로 별씨앗 심기</Text>
+            </Pressable>
+            <View style={styles.gachaGrid}>
+              {GACHA_POOL.map((item) => {
+                const owned = gameState.ownedGachaItemIds.includes(item.id);
+                const percent = Math.round(
+                  (item.weight / GACHA_POOL.reduce((sum, poolItem) => sum + poolItem.weight, 0)) * 100,
+                );
+                return (
+                  <View
+                    key={item.id}
+                    style={[styles.gachaItem, { backgroundColor: owned ? item.color : '#EFEFEF' }]}
+                  >
+                    <Text style={styles.gachaItemEmoji}>{owned ? item.emoji : '❓'}</Text>
+                    <Text style={styles.gachaItemName}>{owned ? item.name : '???'}</Text>
+                    <Text style={styles.gachaItemFreq}>{item.frequency} · {percent}%</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+          <Text style={styles.itemGridTitle}>가구 꾸미기</Text>
+          <View style={styles.itemGrid}>
+            {decorationItems.map((item) => {
+              const owned = gameState.ownedItemIds.includes(item.id);
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => purchaseItem(item)}
+                  style={({ pressed }) => [styles.itemCard, { backgroundColor: item.color }, pressed && styles.pressed]}
+                >
+                  <Text style={styles.itemEmoji}>{item.emoji}</Text>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  <Text style={[styles.itemCost, owned && styles.itemOwned]}>{owned ? '보유 중' : `⭐ ${item.cost}`}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
       )}
 
       {activeTab === '앨범' && (
@@ -616,6 +679,17 @@ const styles = StyleSheet.create({
   friendEmoji: { fontSize: 60 },
   friendName: { color: colors.cocoa, fontSize: 18, fontWeight: '900', marginTop: 8 },
   friendActivity: { color: colors.muted, fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 5 },
+  gachaCard: { backgroundColor: '#FFF6E2', borderRadius: 24, borderWidth: 2, borderColor: '#FBE8BE', padding: 16, marginBottom: 18 },
+  gachaTitle: { color: colors.cocoa, fontSize: 16, fontWeight: '900', marginBottom: 3 },
+  gachaSubtitle: { color: colors.muted, fontSize: 12, fontWeight: '700', marginBottom: 12 },
+  gachaButton: { backgroundColor: colors.butter, borderRadius: 18, paddingVertical: 12, alignItems: 'center', ...shadow },
+  gachaButtonText: { color: colors.cocoa, fontSize: 14, fontWeight: '900' },
+  gachaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  gachaItem: { flexGrow: 1, flexBasis: '22%', minHeight: 90, borderRadius: 16, alignItems: 'center', justifyContent: 'center', padding: 6, borderWidth: 2, borderColor: colors.white },
+  gachaItemEmoji: { fontSize: 26 },
+  gachaItemName: { color: colors.cocoa, fontSize: 10, fontWeight: '800', marginTop: 3, textAlign: 'center' },
+  gachaItemFreq: { color: colors.muted, fontSize: 9, fontWeight: '700', marginTop: 2, textAlign: 'center' },
+  itemGridTitle: { color: colors.cocoa, fontSize: 15, fontWeight: '900', marginBottom: 12 },
   itemGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   itemCard: { flexGrow: 1, flexBasis: 150, minHeight: 170, borderRadius: 25, alignItems: 'center', justifyContent: 'center', padding: 16, borderWidth: 3, borderColor: colors.white },
   itemEmoji: { fontSize: 52 },

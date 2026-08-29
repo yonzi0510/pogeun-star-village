@@ -5,9 +5,13 @@ import {
   awardPraise,
   buyItem,
   completeVillageActivity,
+  drawGacha,
+  GACHA_COST,
+  GACHA_POOL,
   getVillageProgress,
   initialGameState,
   isVillageActivityReady,
+  pickGachaItem,
   placeItem,
   unplaceItem,
   VILLAGE_ACTIVITIES,
@@ -221,4 +225,64 @@ test('isVillageActivityReady는 쿨다운 경과 여부를 정확히 반환한�
 
   assert.equal(isVillageActivityReady(next, 'say-thanks', new Date('2026-08-25T20:00:00.000Z')), false);
   assert.equal(isVillageActivityReady(next, 'say-thanks', new Date('2026-08-26T06:00:00.000Z')), true);
+});
+
+test('pickGachaItem은 확률 가중치 구간에 맞는 아이템을 고른다', () => {
+  const totalWeight = GACHA_POOL.reduce((sum, item) => sum + item.weight, 0);
+  let cumulative = 0;
+
+  for (const item of GACHA_POOL) {
+    const midpointRandom = (cumulative + item.weight / 2) / totalWeight;
+    assert.equal(pickGachaItem(midpointRandom).id, item.id);
+    cumulative += item.weight;
+  }
+
+  assert.equal(pickGachaItem(0).id, GACHA_POOL[0].id);
+  assert.equal(pickGachaItem(0.999999).id, GACHA_POOL[GACHA_POOL.length - 1].id);
+});
+
+test('뽑기는 토큰을 차감하고 새 아이템을 보유 목록에 추가한다', () => {
+  const next = drawGacha(initialGameState, {
+    itemId: 'star-hairpin',
+    transactionId: 'gacha-test-1',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+
+  assert.equal(next.tokenBalance, initialGameState.tokenBalance - GACHA_COST);
+  assert.deepEqual(next.ownedGachaItemIds, ['star-hairpin']);
+  assert.equal(next.gachaDraws[0].isDuplicate, false);
+});
+
+test('이미 가진 아이템이 다시 나오면 토큰 일부를 돌려받는다', () => {
+  const first = drawGacha(initialGameState, {
+    itemId: 'star-hairpin',
+    transactionId: 'gacha-test-2',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+  const second = drawGacha(first, {
+    itemId: 'star-hairpin',
+    transactionId: 'gacha-test-3',
+    createdAt: '2026-08-25T10:05:00.000Z',
+  });
+
+  const refund = Math.ceil(GACHA_COST / 2);
+  assert.equal(second.tokenBalance, first.tokenBalance - (GACHA_COST - refund));
+  assert.deepEqual(second.ownedGachaItemIds, ['star-hairpin']);
+  assert.equal(second.gachaDraws[0].isDuplicate, true);
+});
+
+test('칭찬 토큰이 부족하면 뽑기를 할 수 없다', () => {
+  const brokeState = { ...initialGameState, tokenBalance: GACHA_COST - 1 };
+
+  assert.throws(
+    () => drawGacha(brokeState, { itemId: 'star-hairpin', transactionId: 'gacha-test-4', createdAt: '2026-08-25T10:00:00.000Z' }),
+    /부족/,
+  );
+});
+
+test('알 수 없는 뽑기 아이템은 뽑을 수 없다', () => {
+  assert.throws(
+    () => drawGacha(initialGameState, { itemId: 'unknown-item', transactionId: 'gacha-test-5', createdAt: '2026-08-25T10:00:00.000Z' }),
+    /알 수 없는/,
+  );
 });

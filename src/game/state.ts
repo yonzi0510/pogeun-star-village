@@ -33,6 +33,26 @@ export type VillageActivity = {
   cooldownHours: number;
 };
 
+export type GachaFrequency = '언제나 만나요' | '가끔 만나요' | '특별한 날에만 만나요';
+
+export type GachaItem = {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  frequency: GachaFrequency;
+  weight: number;
+};
+
+export type GachaDrawResult = {
+  id: string;
+  itemId: string;
+  itemName: string;
+  emoji: string;
+  isDuplicate: boolean;
+  createdAt: string;
+};
+
 export type GameState = {
   tokenBalance: number;
   starlight: number;
@@ -41,6 +61,8 @@ export type GameState = {
   ownedItemIds: string[];
   placements: ItemPlacement[];
   activityLog: Record<string, string>;
+  ownedGachaItemIds: string[];
+  gachaDraws: GachaDrawResult[];
 };
 
 export type VillageStage = {
@@ -179,12 +201,43 @@ export const VILLAGE_ACTIVITIES: VillageActivity[] = [
   },
 ];
 
+// 아이가 가장 좋아하는 뽑기입니다. 희귀도 대신 "언제나/가끔/특별한 날 만나는 아이템"으로
+// 표현하고, 확률(weight)은 화면에 그대로 공개합니다. 가구·의상·장난감 중 의상·장난감을 담당합니다.
+export const GACHA_COST = 5;
+
+export const GACHA_POOL: GachaItem[] = [
+  { id: 'star-hairpin', name: '별빛 머리핀', emoji: '✨', color: '#FFF3D6', frequency: '언제나 만나요', weight: 30 },
+  { id: 'cloud-socks', name: '구름 양말', emoji: '🧦', color: '#E8F6FF', frequency: '언제나 만나요', weight: 30 },
+  { id: 'bell-ribbon', name: '방울 리본', emoji: '🎀', color: '#FFE2EC', frequency: '언제나 만나요', weight: 25 },
+  { id: 'shooting-star-plush', name: '별똥별 인형', emoji: '🌠', color: '#EFE7FF', frequency: '가끔 만나요', weight: 10 },
+  { id: 'rainbow-scarf', name: '무지개 목도리', emoji: '🧣', color: '#FFEFD8', frequency: '가끔 만나요', weight: 8 },
+  { id: 'moonlight-cape', name: '달빛 망토', emoji: '🌙', color: '#E4E9FF', frequency: '특별한 날에만 만나요', weight: 3 },
+  { id: 'constellation-crown', name: '별자리 왕관', emoji: '👑', color: '#FFF6E0', frequency: '특별한 날에만 만나요', weight: 2 },
+];
+
+// random은 0 이상 1 미만의 값을 받습니다(Math.random()과 동일한 범위).
+// 순수 함수로 두어 고정된 값으로도 어떤 아이템이 나오는지 테스트할 수 있게 합니다.
+export function pickGachaItem(random: number): GachaItem {
+  const totalWeight = GACHA_POOL.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.min(Math.max(random, 0), 1 - Number.EPSILON) * totalWeight;
+
+  for (const item of GACHA_POOL) {
+    if (roll < item.weight) {
+      return item;
+    }
+    roll -= item.weight;
+  }
+
+  return GACHA_POOL[GACHA_POOL.length - 1]!;
+}
+
 export type GameAction =
   | { type: 'AWARD_PRAISE'; event: PraiseEvent }
   | { type: 'BUY_ITEM'; itemId: string; itemName: string; cost: number; transactionId: string; createdAt: string }
   | { type: 'PLACE_ITEM'; itemId: string; slotId: string }
   | { type: 'UNPLACE_ITEM'; slotId: string }
-  | { type: 'COMPLETE_VILLAGE_ACTIVITY'; activityId: string; transactionId: string; createdAt: string };
+  | { type: 'COMPLETE_VILLAGE_ACTIVITY'; activityId: string; transactionId: string; createdAt: string }
+  | { type: 'DRAW_GACHA'; itemId: string; transactionId: string; createdAt: string };
 
 export const initialGameState: GameState = {
   tokenBalance: 24,
@@ -210,6 +263,8 @@ export const initialGameState: GameState = {
   ownedItemIds: [],
   placements: [],
   activityLog: {},
+  ownedGachaItemIds: [],
+  gachaDraws: [],
 };
 
 function isPositiveInteger(value: number) {
@@ -345,6 +400,50 @@ export function completeVillageActivity(
   };
 }
 
+export function drawGacha(
+  state: GameState,
+  input: { itemId: string; transactionId: string; createdAt: string },
+): GameState {
+  const item = GACHA_POOL.find((poolItem) => poolItem.id === input.itemId);
+  if (!item) {
+    throw new Error('알 수 없는 뽑기 결과예요.');
+  }
+  if (state.tokenBalance < GACHA_COST) {
+    throw new Error('칭찬 토큰이 부족합니다.');
+  }
+
+  const isDuplicate = state.ownedGachaItemIds.includes(item.id);
+  const refund = isDuplicate ? Math.ceil(GACHA_COST / 2) : 0;
+  const netCost = GACHA_COST - refund;
+
+  return {
+    ...state,
+    tokenBalance: state.tokenBalance - netCost,
+    ownedGachaItemIds: isDuplicate ? state.ownedGachaItemIds : [...state.ownedGachaItemIds, item.id],
+    gachaDraws: [
+      {
+        id: input.transactionId,
+        itemId: item.id,
+        itemName: item.name,
+        emoji: item.emoji,
+        isDuplicate,
+        createdAt: input.createdAt,
+      },
+      ...state.gachaDraws,
+    ],
+    transactions: [
+      {
+        id: input.transactionId,
+        kind: 'spend',
+        amount: netCost,
+        reason: isDuplicate ? `별씨앗 뽑기 - ${item.name} (겹침, 일부 환급)` : `별씨앗 뽑기 - ${item.name}`,
+        createdAt: input.createdAt,
+      },
+      ...state.transactions,
+    ],
+  };
+}
+
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'AWARD_PRAISE':
@@ -357,6 +456,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return unplaceItem(state, action);
     case 'COMPLETE_VILLAGE_ACTIVITY':
       return completeVillageActivity(state, action);
+    case 'DRAW_GACHA':
+      return drawGacha(state, action);
     default:
       return state;
   }
