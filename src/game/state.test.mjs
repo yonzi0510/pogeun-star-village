@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { awardPraise, buyItem, getVillageProgress, initialGameState } from './state.ts';
+import {
+  awardPraise,
+  buyItem,
+  completeEtiquetteActivity,
+  getVillageProgress,
+  initialGameState,
+  isEtiquetteActivityReady,
+  placeItem,
+  unplaceItem,
+} from './state.ts';
 
 test('칭찬은 토큰과 별빛을 함께 증가시킨다', () => {
   const next = awardPraise(initialGameState, {
@@ -82,4 +91,117 @@ test('마지막 구현 단계에 도달하면 다음 단계가 없다', () => {
   assert.equal(progress.nextStage, null);
   assert.equal(progress.nextThreshold, null);
   assert.equal(progress.progressToNext, 1);
+});
+
+test('구매한 아이템은 빈 자리에 배치할 수 있다', () => {
+  const owned = buyItem(initialGameState, {
+    itemId: 'cloud-swing',
+    itemName: '구름 그네',
+    cost: 10,
+    transactionId: 'buy-test-3',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+  const placed = placeItem(owned, { itemId: 'cloud-swing', slotId: 'slot-1' });
+
+  assert.deepEqual(placed.placements, [{ itemId: 'cloud-swing', slotId: 'slot-1' }]);
+});
+
+test('구매하지 않은 아이템은 배치할 수 없다', () => {
+  assert.throws(() => placeItem(initialGameState, { itemId: 'cloud-swing', slotId: 'slot-1' }), /구매/);
+});
+
+test('이미 아이템이 놓인 자리에는 다시 놓을 수 없다', () => {
+  const owned = buyItem(initialGameState, {
+    itemId: 'cloud-swing',
+    itemName: '구름 그네',
+    cost: 10,
+    transactionId: 'buy-test-4',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+  const twiceOwned = buyItem(owned, {
+    itemId: 'star-lamp',
+    itemName: '별빛 램프',
+    cost: 12,
+    transactionId: 'buy-test-5',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+  const placed = placeItem(twiceOwned, { itemId: 'cloud-swing', slotId: 'slot-1' });
+
+  assert.throws(() => placeItem(placed, { itemId: 'star-lamp', slotId: 'slot-1' }), /놓여/);
+});
+
+test('배치된 아이템은 자리에서 치울 수 있다', () => {
+  const owned = buyItem(initialGameState, {
+    itemId: 'cloud-swing',
+    itemName: '구름 그네',
+    cost: 10,
+    transactionId: 'buy-test-6',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+  const placed = placeItem(owned, { itemId: 'cloud-swing', slotId: 'slot-1' });
+  const removed = unplaceItem(placed, { slotId: 'slot-1' });
+
+  assert.deepEqual(removed.placements, []);
+});
+
+test('마을 생활 매너 활동을 실천하면 토큰과 별빛을 얻는다', () => {
+  const next = completeEtiquetteActivity(initialGameState, {
+    activityId: 'greet-neighbor',
+    transactionId: 'etiquette-test-1',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+
+  assert.equal(next.tokenBalance, 25);
+  assert.equal(next.starlight, 330);
+  assert.equal(next.etiquetteLog['greet-neighbor'], '2026-08-25T10:00:00.000Z');
+  assert.equal(next.transactions[0].reason, '이웃과 인사하기 실천');
+});
+
+test('같은 매너 활동은 쿨다운 전에 다시 실천할 수 없다', () => {
+  const next = completeEtiquetteActivity(initialGameState, {
+    activityId: 'greet-neighbor',
+    transactionId: 'etiquette-test-2',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+
+  assert.throws(
+    () =>
+      completeEtiquetteActivity(next, {
+        activityId: 'greet-neighbor',
+        transactionId: 'etiquette-test-3',
+        createdAt: '2026-08-25T20:00:00.000Z',
+      }),
+    /이미/,
+  );
+
+  assert.doesNotThrow(() =>
+    completeEtiquetteActivity(next, {
+      activityId: 'greet-neighbor',
+      transactionId: 'etiquette-test-4',
+      createdAt: '2026-08-26T06:00:00.000Z',
+    }),
+  );
+});
+
+test('알 수 없는 매너 활동은 실천할 수 없다', () => {
+  assert.throws(
+    () =>
+      completeEtiquetteActivity(initialGameState, {
+        activityId: 'unknown-activity',
+        transactionId: 'etiquette-test-5',
+        createdAt: '2026-08-25T10:00:00.000Z',
+      }),
+    /알 수 없는/,
+  );
+});
+
+test('isEtiquetteActivityReady는 쿨다운 경과 여부를 정확히 반환한다', () => {
+  const next = completeEtiquetteActivity(initialGameState, {
+    activityId: 'say-thanks',
+    transactionId: 'etiquette-test-6',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+
+  assert.equal(isEtiquetteActivityReady(next, 'say-thanks', new Date('2026-08-25T20:00:00.000Z')), false);
+  assert.equal(isEtiquetteActivityReady(next, 'say-thanks', new Date('2026-08-26T06:00:00.000Z')), true);
 });

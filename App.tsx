@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   Alert,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -12,15 +13,23 @@ import {
 } from 'react-native';
 
 import { colors, shadow } from './src/theme';
-import { gameReducer, getVillageProgress, initialGameState } from './src/game/state';
+import { getActiveSeasonalEvent } from './src/game/calendar';
+import { getResidentActivity } from './src/game/schedule';
+import { ETIQUETTE_ACTIVITIES, gameReducer, getVillageProgress, initialGameState, isEtiquetteActivityReady } from './src/game/state';
 
 type Tab = '마을' | '친구' | '꾸미기' | '앨범';
 
 const residents = [
-  { name: '포포', emoji: '🐑', color: '#DDF5E8', activity: '구름정원에 물 주는 중' },
-  { name: '모모몽', emoji: '🐰', color: '#FFE7D2', activity: '광장에서 기다리는 중' },
-  { name: '두리콩', emoji: '🐶', color: '#FFF0C2', activity: '칭찬 편지를 배달하는 중' },
-  { name: '루루별', emoji: '🐱', color: '#E9E1FF', activity: '별빛을 그리고 있는 중' },
+  { name: '포포', emoji: '🐑', color: '#DDF5E8' },
+  { name: '모모몽', emoji: '🐰', color: '#FFE7D2' },
+  { name: '두리콩', emoji: '🐶', color: '#FFF0C2' },
+  { name: '루루별', emoji: '🐱', color: '#E9E1FF' },
+];
+
+const VILLAGE_SLOTS = [
+  { id: 'slot-1', label: '왼쪽 뜰' },
+  { id: 'slot-2', label: '가운데 뜰' },
+  { id: 'slot-3', label: '오른쪽 뜰' },
 ];
 
 const tabs: Array<{ label: Tab; emoji: string }> = [
@@ -84,10 +93,13 @@ function LockedBuilding({ nextStageName }: { nextStageName: string }) {
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('마을');
   const [selectedResident, setSelectedResident] = useState('모모몽');
+  const [pickerSlot, setPickerSlot] = useState<string | null>(null);
   const [gameState, dispatch] = useReducer(gameReducer, initialGameState);
   const { width, height } = useWindowDimensions();
   const isTablet = width >= 768;
   const isWideLayout = width >= 900 && width > height;
+
+  const seasonalEvent = useMemo(() => getActiveSeasonalEvent(), []);
 
   const currentResident = useMemo(
     () => residents.find((resident) => resident.name === selectedResident) ?? residents[1]!,
@@ -126,6 +138,45 @@ export default function App() {
     });
   };
 
+  const unplacedOwnedItems = decorationItems.filter(
+    (item) => gameState.ownedItemIds.includes(item.id) && !gameState.placements.some((p) => p.itemId === item.id),
+  );
+
+  const handleSlotPress = (slotId: string) => {
+    const placement = gameState.placements.find((p) => p.slotId === slotId);
+    const placedItem = placement ? decorationItems.find((item) => item.id === placement.itemId) : undefined;
+
+    if (placedItem) {
+      Alert.alert(placedItem.name, '이 자리에서 치울까요?', [
+        { text: '취소', style: 'cancel' },
+        { text: '치우기', style: 'destructive', onPress: () => dispatch({ type: 'UNPLACE_ITEM', slotId }) },
+      ]);
+      return;
+    }
+    setPickerSlot(slotId);
+  };
+
+  const placeItemInPickerSlot = (itemId: string) => {
+    if (pickerSlot) {
+      dispatch({ type: 'PLACE_ITEM', itemId, slotId: pickerSlot });
+    }
+    setPickerSlot(null);
+  };
+
+  const completeEtiquette = (activity: (typeof ETIQUETTE_ACTIVITIES)[number]) => {
+    if (!isEtiquetteActivityReady(gameState, activity.id)) {
+      Alert.alert('오늘은 이미 실천했어요', '내일 다시 실천해봐요!');
+      return;
+    }
+    dispatch({
+      type: 'COMPLETE_ETIQUETTE_ACTIVITY',
+      activityId: activity.id,
+      transactionId: `etiquette-${activity.id}-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    });
+    Alert.alert('참 잘했어요! 🌟', `${activity.name}을(를) 실천해서 칭찬 토큰 +${activity.tokens}을 받았어요.`);
+  };
+
   const praisePanel = (
     <View style={styles.praiseCard}>
       <View style={styles.praiseIcon}><Text style={styles.praiseIconText}>💌</Text></View>
@@ -143,6 +194,16 @@ export default function App() {
       <View style={[styles.cloud, styles.cloudRight]}><Text style={styles.cloudText}>☁️</Text></View>
       <Text style={styles.areaBadge}>{villageProgress.stage.name} · {villageProgress.stageIndex + 1}단계</Text>
       <Text style={[styles.villageTitle, isTablet && styles.villageTitleTablet]}>우리 마을이 자라고 있어요!</Text>
+
+      {seasonalEvent && (
+        <View style={styles.seasonalBanner}>
+          <Text style={styles.seasonalEmoji}>{seasonalEvent.emoji}</Text>
+          <View style={styles.seasonalCopy}>
+            <Text style={styles.seasonalName}>{seasonalEvent.name}</Text>
+            <Text style={styles.seasonalMessage}>{seasonalEvent.message}</Text>
+          </View>
+        </View>
+      )}
 
       <View style={[styles.buildingsRow, isTablet && styles.buildingsRowTablet]}>
         {buildings.map((item) =>
@@ -191,7 +252,55 @@ export default function App() {
 
       <View style={styles.speechBubble}>
         <Text style={styles.speechName}>{currentResident.name}</Text>
-        <Text style={styles.speechText}>{currentResident.activity}</Text>
+        <Text style={styles.speechText}>{getResidentActivity(currentResident.name)}</Text>
+      </View>
+
+      <View style={[styles.slotsRow, isTablet && styles.slotsRowTablet]}>
+        {VILLAGE_SLOTS.map((slot) => {
+          const placement = gameState.placements.find((p) => p.slotId === slot.id);
+          const item = placement ? decorationItems.find((d) => d.id === placement.itemId) : undefined;
+          return (
+            <Pressable
+              key={slot.id}
+              onPress={() => handleSlotPress(slot.id)}
+              style={({ pressed }) => [
+                styles.slot,
+                item ? { backgroundColor: item.color } : styles.slotEmpty,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.slotEmoji}>{item ? item.emoji : '➕'}</Text>
+              <Text style={styles.slotLabel}>{item ? item.name : slot.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  const etiquettePanel = (
+    <View style={styles.etiquetteCard}>
+      <Text style={styles.etiquetteTitle}>오늘의 마을 생활 💛</Text>
+      <Text style={styles.etiquetteSubtitle}>이웃과 어울리는 작은 매너를 실천하면 토큰을 받아요.</Text>
+      <View style={styles.etiquetteRow}>
+        {ETIQUETTE_ACTIVITIES.map((activity) => {
+          const ready = isEtiquetteActivityReady(gameState, activity.id);
+          return (
+            <Pressable
+              key={activity.id}
+              onPress={() => completeEtiquette(activity)}
+              style={({ pressed }) => [
+                styles.etiquetteButton,
+                !ready && styles.etiquetteButtonDone,
+                pressed && ready && styles.pressed,
+              ]}
+            >
+              <Text style={styles.etiquetteEmoji}>{activity.emoji}</Text>
+              <Text style={styles.etiquetteName}>{activity.name}</Text>
+              <Text style={styles.etiquetteStatus}>{ready ? `⭐ +${activity.tokens}` : '오늘 완료!'}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -240,15 +349,16 @@ export default function App() {
                 </Pressable>
               );
             }
+            const activity = getResidentActivity(resident.name);
             return (
               <Pressable
                 key={resident.name}
-                onPress={() => Alert.alert(resident.name, resident.activity)}
+                onPress={() => Alert.alert(resident.name, activity)}
                 style={({ pressed }) => [styles.friendCard, { backgroundColor: resident.color }, pressed && styles.pressed]}
               >
                 <Text style={styles.friendEmoji}>{resident.emoji}</Text>
                 <Text style={styles.friendName}>{resident.name}</Text>
-                <Text style={styles.friendActivity}>{resident.activity}</Text>
+                <Text style={styles.friendActivity}>{activity}</Text>
               </Pressable>
             );
           })}
@@ -333,6 +443,7 @@ export default function App() {
               <View style={styles.villagePane}>{villagePanel}</View>
               <View style={styles.sidePane}>
                 {praisePanel}
+                {etiquettePanel}
                 {progressPanel}
                 <View style={styles.tabletNote}>
                   <Text style={styles.tabletNoteEmoji}>🌈</Text>
@@ -344,6 +455,7 @@ export default function App() {
           ) : (
             <>
               {praisePanel}
+              {etiquettePanel}
               {villagePanel}
               {progressPanel}
             </>
@@ -366,6 +478,33 @@ export default function App() {
           ))}
         </View>
       </View>
+
+      <Modal visible={pickerSlot !== null} transparent animationType="fade" onRequestClose={() => setPickerSlot(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>이 자리에 놓을 아이템을 골라요</Text>
+            {unplacedOwnedItems.length === 0 ? (
+              <Text style={styles.modalEmpty}>꾸미기 탭에서 아이템을 먼저 구매해보세요!</Text>
+            ) : (
+              <View style={styles.modalGrid}>
+                {unplacedOwnedItems.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => placeItemInPickerSlot(item.id)}
+                    style={({ pressed }) => [styles.modalItem, { backgroundColor: item.color }, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.modalItemEmoji}>{item.emoji}</Text>
+                    <Text style={styles.modalItemName}>{item.name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            <Pressable onPress={() => setPickerSlot(null)} style={styles.modalClose}>
+              <Text style={styles.modalCloseText}>닫기</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -422,6 +561,26 @@ const styles = StyleSheet.create({
   speechBubble: { backgroundColor: colors.paper, borderRadius: 17, paddingVertical: 10, paddingHorizontal: 14, marginTop: 13, alignSelf: 'center', minWidth: '82%', ...shadow },
   speechName: { textAlign: 'center', color: colors.pink, fontSize: 12, fontWeight: '900' },
   speechText: { textAlign: 'center', color: colors.cocoa, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  seasonalBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFFD9', borderRadius: 18, padding: 10, marginTop: 10 },
+  seasonalEmoji: { fontSize: 26, marginRight: 8 },
+  seasonalCopy: { flex: 1 },
+  seasonalName: { color: colors.cocoa, fontSize: 12, fontWeight: '900' },
+  seasonalMessage: { color: colors.muted, fontSize: 11, fontWeight: '700', marginTop: 1 },
+  slotsRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  slotsRowTablet: { gap: 14, marginTop: 20 },
+  slot: { flex: 1, minHeight: 76, borderRadius: 18, alignItems: 'center', justifyContent: 'center', padding: 6, borderWidth: 2, borderColor: '#FFFFFFC7', ...shadow },
+  slotEmpty: { backgroundColor: '#FFFFFFA6', borderStyle: 'dashed' },
+  slotEmoji: { fontSize: 26 },
+  slotLabel: { marginTop: 2, color: colors.cocoa, fontSize: 10, fontWeight: '800', textAlign: 'center' },
+  etiquetteCard: { backgroundColor: colors.paper, borderRadius: 22, padding: 15, marginBottom: 14, borderWidth: 2, borderColor: '#F0E4D2' },
+  etiquetteTitle: { color: colors.cocoa, fontWeight: '900', fontSize: 14, marginBottom: 3 },
+  etiquetteSubtitle: { color: colors.muted, fontSize: 11, fontWeight: '700', marginBottom: 10 },
+  etiquetteRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  etiquetteButton: { flexGrow: 1, flexBasis: '45%', backgroundColor: '#FFF6E2', borderRadius: 16, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: '#FBE8BE' },
+  etiquetteButtonDone: { backgroundColor: '#EFEFEF', borderColor: '#E1E1E1', opacity: 0.75 },
+  etiquetteEmoji: { fontSize: 24 },
+  etiquetteName: { color: colors.cocoa, fontSize: 11, fontWeight: '800', marginTop: 4, textAlign: 'center' },
+  etiquetteStatus: { color: colors.pink, fontSize: 11, fontWeight: '900', marginTop: 3 },
   progressCard: { backgroundColor: colors.paper, borderRadius: 22, padding: 15, marginTop: 14, borderWidth: 2, borderColor: '#F0E4D2' },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   progressTitle: { color: colors.cocoa, fontWeight: '900', fontSize: 14 },
@@ -472,4 +631,14 @@ const styles = StyleSheet.create({
   tabLabel: { color: colors.muted, fontSize: 10, fontWeight: '700', marginTop: 2 },
   activeTabLabel: { color: colors.cocoa, fontWeight: '900' },
   pressed: { opacity: 0.76, transform: [{ scale: 0.98 }] },
+  modalOverlay: { flex: 1, backgroundColor: '#33261DAA', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  modalCard: { width: '100%', maxWidth: 420, backgroundColor: colors.paper, borderRadius: 26, padding: 20, ...shadow },
+  modalTitle: { color: colors.cocoa, fontSize: 16, fontWeight: '900', marginBottom: 12, textAlign: 'center' },
+  modalEmpty: { color: colors.muted, fontSize: 13, fontWeight: '700', textAlign: 'center', paddingVertical: 16 },
+  modalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  modalItem: { width: 96, minHeight: 96, borderRadius: 20, alignItems: 'center', justifyContent: 'center', padding: 8, borderWidth: 2, borderColor: colors.white },
+  modalItemEmoji: { fontSize: 32 },
+  modalItemName: { color: colors.cocoa, fontSize: 11, fontWeight: '800', marginTop: 4, textAlign: 'center' },
+  modalClose: { marginTop: 16, alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 14, backgroundColor: '#F0E4D2' },
+  modalCloseText: { color: colors.cocoa, fontWeight: '900', fontSize: 13 },
 });
