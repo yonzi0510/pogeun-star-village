@@ -21,8 +21,11 @@ export type ItemPlacement = {
   slotId: string;
 };
 
-export type EtiquetteActivity = {
+export type VillageActivityCategory = 'manner' | 'chore';
+
+export type VillageActivity = {
   id: string;
+  category: VillageActivityCategory;
   name: string;
   emoji: string;
   description: string;
@@ -37,7 +40,7 @@ export type GameState = {
   transactions: TokenTransaction[];
   ownedItemIds: string[];
   placements: ItemPlacement[];
-  etiquetteLog: Record<string, string>;
+  activityLog: Record<string, string>;
 };
 
 export type VillageStage = {
@@ -99,11 +102,12 @@ export function getVillageProgress(starlight: number): VillageProgress {
   return { stageIndex, stage, nextStage, nextThreshold, progressToNext };
 }
 
-// 부모의 칭찬 스티커 외에, 마을 생활 속 사회 에티켓을 연습하면 얻는 토큰 활동입니다.
+// 부모의 칭찬 스티커 외에, 마을 생활 속 사회 매너 연습과 마을일 돕기로도 얻는 토큰 활동입니다.
 // 하루 한 번(cooldownHours)만 인정해 무한 반복으로 토큰을 모으는 것을 막습니다.
-export const ETIQUETTE_ACTIVITIES: EtiquetteActivity[] = [
+export const VILLAGE_ACTIVITIES: VillageActivity[] = [
   {
     id: 'greet-neighbor',
+    category: 'manner',
     name: '이웃과 인사하기',
     emoji: '👋',
     description: '마을에서 만난 주민에게 먼저 반갑게 인사해요.',
@@ -112,6 +116,7 @@ export const ETIQUETTE_ACTIVITIES: EtiquetteActivity[] = [
   },
   {
     id: 'say-thanks',
+    category: 'manner',
     name: '감사 인사하기',
     emoji: '🙏',
     description: '도움을 준 주민에게 고맙다고 말해요.',
@@ -120,6 +125,7 @@ export const ETIQUETTE_ACTIVITIES: EtiquetteActivity[] = [
   },
   {
     id: 'keep-promise',
+    category: 'manner',
     name: '약속 지키기',
     emoji: '🤝',
     description: '오늘 하기로 한 약속을 잘 지켰는지 스스로 점검해요.',
@@ -128,9 +134,46 @@ export const ETIQUETTE_ACTIVITIES: EtiquetteActivity[] = [
   },
   {
     id: 'share-turn',
+    category: 'manner',
     name: '차례 양보하기',
     emoji: '🔄',
     description: '함께하는 놀이에서 차례를 양보하는 연습을 해요.',
+    tokens: 1,
+    cooldownHours: 20,
+  },
+  {
+    id: 'water-garden',
+    category: 'chore',
+    name: '구름정원 물주기 돕기',
+    emoji: '🌿',
+    description: '포포가 구름정원에 물 주는 걸 도와줘요.',
+    tokens: 1,
+    cooldownHours: 20,
+  },
+  {
+    id: 'sort-mail',
+    category: 'chore',
+    name: '별빛우체국 편지 정리 돕기',
+    emoji: '📬',
+    description: '두리콩이 편지를 정리하는 걸 도와줘요.',
+    tokens: 1,
+    cooldownHours: 20,
+  },
+  {
+    id: 'sweep-plaza',
+    category: 'chore',
+    name: '마을 광장 쓸기',
+    emoji: '🧹',
+    description: '마을 광장을 깨끗하게 쓸어요.',
+    tokens: 1,
+    cooldownHours: 20,
+  },
+  {
+    id: 'polish-window',
+    category: 'chore',
+    name: '모모몽의 집 창문 닦기',
+    emoji: '🪟',
+    description: '모모몽의 집 창문을 반짝반짝하게 닦아요.',
     tokens: 1,
     cooldownHours: 20,
   },
@@ -141,7 +184,7 @@ export type GameAction =
   | { type: 'BUY_ITEM'; itemId: string; itemName: string; cost: number; transactionId: string; createdAt: string }
   | { type: 'PLACE_ITEM'; itemId: string; slotId: string }
   | { type: 'UNPLACE_ITEM'; slotId: string }
-  | { type: 'COMPLETE_ETIQUETTE_ACTIVITY'; activityId: string; transactionId: string; createdAt: string };
+  | { type: 'COMPLETE_VILLAGE_ACTIVITY'; activityId: string; transactionId: string; createdAt: string };
 
 export const initialGameState: GameState = {
   tokenBalance: 24,
@@ -166,7 +209,7 @@ export const initialGameState: GameState = {
   ],
   ownedItemIds: [],
   placements: [],
-  etiquetteLog: {},
+  activityLog: {},
 };
 
 function isPositiveInteger(value: number) {
@@ -253,17 +296,17 @@ export function unplaceItem(state: GameState, input: { slotId: string }): GameSt
   };
 }
 
-export function isEtiquetteActivityReady(
+export function isVillageActivityReady(
   state: GameState,
   activityId: string,
   now: Date = new Date(),
 ): boolean {
-  const activity = ETIQUETTE_ACTIVITIES.find((item) => item.id === activityId);
+  const activity = VILLAGE_ACTIVITIES.find((item) => item.id === activityId);
   if (!activity) {
     return false;
   }
 
-  const lastCompletedAt = state.etiquetteLog[activityId];
+  const lastCompletedAt = state.activityLog[activityId];
   if (!lastCompletedAt) {
     return true;
   }
@@ -272,15 +315,15 @@ export function isEtiquetteActivityReady(
   return elapsedHours >= activity.cooldownHours;
 }
 
-export function completeEtiquetteActivity(
+export function completeVillageActivity(
   state: GameState,
   input: { activityId: string; transactionId: string; createdAt: string },
 ): GameState {
-  const activity = ETIQUETTE_ACTIVITIES.find((item) => item.id === input.activityId);
+  const activity = VILLAGE_ACTIVITIES.find((item) => item.id === input.activityId);
   if (!activity) {
     throw new Error('알 수 없는 마을 생활 활동이에요.');
   }
-  if (!isEtiquetteActivityReady(state, input.activityId, new Date(input.createdAt))) {
+  if (!isVillageActivityReady(state, input.activityId, new Date(input.createdAt))) {
     throw new Error('이 활동은 오늘 이미 실천했어요. 내일 다시 해봐요!');
   }
 
@@ -288,7 +331,7 @@ export function completeEtiquetteActivity(
     ...state,
     tokenBalance: state.tokenBalance + activity.tokens,
     starlight: state.starlight + activity.tokens * 10,
-    etiquetteLog: { ...state.etiquetteLog, [input.activityId]: input.createdAt },
+    activityLog: { ...state.activityLog, [input.activityId]: input.createdAt },
     transactions: [
       {
         id: input.transactionId,
@@ -312,8 +355,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return placeItem(state, action);
     case 'UNPLACE_ITEM':
       return unplaceItem(state, action);
-    case 'COMPLETE_ETIQUETTE_ACTIVITY':
-      return completeEtiquetteActivity(state, action);
+    case 'COMPLETE_VILLAGE_ACTIVITY':
+      return completeVillageActivity(state, action);
     default:
       return state;
   }

@@ -4,12 +4,13 @@ import test from 'node:test';
 import {
   awardPraise,
   buyItem,
-  completeEtiquetteActivity,
+  completeVillageActivity,
   getVillageProgress,
   initialGameState,
-  isEtiquetteActivityReady,
+  isVillageActivityReady,
   placeItem,
   unplaceItem,
+  VILLAGE_ACTIVITIES,
 } from './state.ts';
 
 test('칭찬은 토큰과 별빛을 함께 증가시킨다', () => {
@@ -145,63 +146,79 @@ test('배치된 아이템은 자리에서 치울 수 있다', () => {
 });
 
 test('마을 생활 매너 활동을 실천하면 토큰과 별빛을 얻는다', () => {
-  const next = completeEtiquetteActivity(initialGameState, {
+  const next = completeVillageActivity(initialGameState, {
     activityId: 'greet-neighbor',
-    transactionId: 'etiquette-test-1',
+    transactionId: 'activity-test-1',
     createdAt: '2026-08-25T10:00:00.000Z',
   });
 
   assert.equal(next.tokenBalance, 25);
   assert.equal(next.starlight, 330);
-  assert.equal(next.etiquetteLog['greet-neighbor'], '2026-08-25T10:00:00.000Z');
+  assert.equal(next.activityLog['greet-neighbor'], '2026-08-25T10:00:00.000Z');
   assert.equal(next.transactions[0].reason, '이웃과 인사하기 실천');
 });
 
+test('마을일 돕기도 매너 활동과 같은 방식으로 토큰을 준다', () => {
+  const next = completeVillageActivity(initialGameState, {
+    activityId: 'water-garden',
+    transactionId: 'activity-test-chore-1',
+    createdAt: '2026-08-25T10:00:00.000Z',
+  });
+
+  assert.equal(next.tokenBalance, 25);
+  assert.equal(next.starlight, 330);
+  assert.equal(next.transactions[0].reason, '구름정원 물주기 돕기 실천');
+  assert.equal(
+    VILLAGE_ACTIVITIES.find((activity) => activity.id === 'water-garden')?.category,
+    'chore',
+  );
+});
+
 test('같은 매너 활동은 쿨다운 전에 다시 실천할 수 없다', () => {
-  const next = completeEtiquetteActivity(initialGameState, {
+  const next = completeVillageActivity(initialGameState, {
     activityId: 'greet-neighbor',
-    transactionId: 'etiquette-test-2',
+    transactionId: 'activity-test-2',
     createdAt: '2026-08-25T10:00:00.000Z',
   });
 
   assert.throws(
     () =>
-      completeEtiquetteActivity(next, {
+      completeVillageActivity(next, {
         activityId: 'greet-neighbor',
-        transactionId: 'etiquette-test-3',
+        transactionId: 'activity-test-3',
         createdAt: '2026-08-25T20:00:00.000Z',
       }),
     /이미/,
   );
 
   assert.doesNotThrow(() =>
-    completeEtiquetteActivity(next, {
+    completeVillageActivity(next, {
       activityId: 'greet-neighbor',
-      transactionId: 'etiquette-test-4',
+      transactionId: 'activity-test-4',
       createdAt: '2026-08-26T06:00:00.000Z',
     }),
   );
 });
 
-test('알 수 없는 매너 활동은 실천할 수 없다', () => {
+test('알 수 없는 마을 생활 활동은 실천할 수 없다', () => {
   assert.throws(
     () =>
-      completeEtiquetteActivity(initialGameState, {
+      completeVillageActivity(initialGameState, {
         activityId: 'unknown-activity',
-        transactionId: 'etiquette-test-5',
+        transactionId: 'activity-test-5',
         createdAt: '2026-08-25T10:00:00.000Z',
       }),
     /알 수 없는/,
   );
 });
 
-test('isEtiquetteActivityReady는 쿨다운 경과 여부를 정확히 반환한다', () => {
-  const next = completeEtiquetteActivity(initialGameState, {
+test('isVillageActivityReady는 쿨다운 경과 여부를 정확히 반환한다', () => {
+  const next = completeVillageActivity(initialGameState, {
     activityId: 'say-thanks',
-    transactionId: 'etiquette-test-6',
+    transactionId: 'activity-test-6',
     createdAt: '2026-08-25T10:00:00.000Z',
   });
 
-  assert.equal(isEtiquetteActivityReady(next, 'say-thanks', new Date('2026-08-25T20:00:00.000Z')), false);
-  assert.equal(isEtiquetteActivityReady(next, 'say-thanks', new Date('2026-08-26T06:00:00.000Z')), true);
+  assert.equal(isVillageActivityReady(next, 'say-thanks', new Date('2026-08-25T20:00:00.000Z')), false);
+  assert.equal(isVillageActivityReady(next, 'say-thanks', new Date('2026-08-26T06:00:00.000Z')), true);
 });

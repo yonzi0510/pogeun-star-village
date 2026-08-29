@@ -15,7 +15,7 @@ import {
 import { colors, shadow } from './src/theme';
 import { getActiveSeasonalEvent } from './src/game/calendar';
 import { getResidentActivity } from './src/game/schedule';
-import { ETIQUETTE_ACTIVITIES, gameReducer, getVillageProgress, initialGameState, isEtiquetteActivityReady } from './src/game/state';
+import { gameReducer, getVillageProgress, initialGameState, isVillageActivityReady, VILLAGE_ACTIVITIES } from './src/game/state';
 
 type Tab = '마을' | '친구' | '꾸미기' | '앨범';
 
@@ -30,6 +30,11 @@ const VILLAGE_SLOTS = [
   { id: 'slot-1', label: '왼쪽 뜰' },
   { id: 'slot-2', label: '가운데 뜰' },
   { id: 'slot-3', label: '오른쪽 뜰' },
+];
+
+const VILLAGE_ACTIVITY_GROUPS: Array<{ category: 'manner' | 'chore'; label: string }> = [
+  { category: 'manner', label: '이웃과 지내는 매너' },
+  { category: 'chore', label: '마을일 돕기' },
 ];
 
 const tabs: Array<{ label: Tab; emoji: string }> = [
@@ -163,15 +168,15 @@ export default function App() {
     setPickerSlot(null);
   };
 
-  const completeEtiquette = (activity: (typeof ETIQUETTE_ACTIVITIES)[number]) => {
-    if (!isEtiquetteActivityReady(gameState, activity.id)) {
+  const completeVillageActivityAction = (activity: (typeof VILLAGE_ACTIVITIES)[number]) => {
+    if (!isVillageActivityReady(gameState, activity.id)) {
       Alert.alert('오늘은 이미 실천했어요', '내일 다시 실천해봐요!');
       return;
     }
     dispatch({
-      type: 'COMPLETE_ETIQUETTE_ACTIVITY',
+      type: 'COMPLETE_VILLAGE_ACTIVITY',
       activityId: activity.id,
-      transactionId: `etiquette-${activity.id}-${Date.now()}`,
+      transactionId: `activity-${activity.id}-${Date.now()}`,
       createdAt: new Date().toISOString(),
     });
     Alert.alert('참 잘했어요! 🌟', `${activity.name}을(를) 실천해서 칭찬 토큰 +${activity.tokens}을 받았어요.`);
@@ -281,27 +286,32 @@ export default function App() {
   const etiquettePanel = (
     <View style={styles.etiquetteCard}>
       <Text style={styles.etiquetteTitle}>오늘의 마을 생활 💛</Text>
-      <Text style={styles.etiquetteSubtitle}>이웃과 어울리는 작은 매너를 실천하면 토큰을 받아요.</Text>
-      <View style={styles.etiquetteRow}>
-        {ETIQUETTE_ACTIVITIES.map((activity) => {
-          const ready = isEtiquetteActivityReady(gameState, activity.id);
-          return (
-            <Pressable
-              key={activity.id}
-              onPress={() => completeEtiquette(activity)}
-              style={({ pressed }) => [
-                styles.etiquetteButton,
-                !ready && styles.etiquetteButtonDone,
-                pressed && ready && styles.pressed,
-              ]}
-            >
-              <Text style={styles.etiquetteEmoji}>{activity.emoji}</Text>
-              <Text style={styles.etiquetteName}>{activity.name}</Text>
-              <Text style={styles.etiquetteStatus}>{ready ? `⭐ +${activity.tokens}` : '오늘 완료!'}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <Text style={styles.etiquetteSubtitle}>매너를 실천하거나 마을일을 도우면 토큰을 받아요.</Text>
+      {VILLAGE_ACTIVITY_GROUPS.map((group) => (
+        <View key={group.category} style={styles.etiquetteGroup}>
+          <Text style={styles.etiquetteGroupLabel}>{group.label}</Text>
+          <View style={styles.etiquetteRow}>
+            {VILLAGE_ACTIVITIES.filter((activity) => activity.category === group.category).map((activity) => {
+              const ready = isVillageActivityReady(gameState, activity.id);
+              return (
+                <Pressable
+                  key={activity.id}
+                  onPress={() => completeVillageActivityAction(activity)}
+                  style={({ pressed }) => [
+                    styles.etiquetteButton,
+                    !ready && styles.etiquetteButtonDone,
+                    pressed && ready && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.etiquetteEmoji}>{activity.emoji}</Text>
+                  <Text style={styles.etiquetteName}>{activity.name}</Text>
+                  <Text style={styles.etiquetteStatus}>{ready ? `⭐ +${activity.tokens}` : '오늘 완료!'}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ))}
     </View>
   );
 
@@ -575,6 +585,8 @@ const styles = StyleSheet.create({
   etiquetteCard: { backgroundColor: colors.paper, borderRadius: 22, padding: 15, marginBottom: 14, borderWidth: 2, borderColor: '#F0E4D2' },
   etiquetteTitle: { color: colors.cocoa, fontWeight: '900', fontSize: 14, marginBottom: 3 },
   etiquetteSubtitle: { color: colors.muted, fontSize: 11, fontWeight: '700', marginBottom: 10 },
+  etiquetteGroup: { marginBottom: 10 },
+  etiquetteGroupLabel: { color: colors.muted, fontSize: 11, fontWeight: '900', marginBottom: 6 },
   etiquetteRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   etiquetteButton: { flexGrow: 1, flexBasis: '45%', backgroundColor: '#FFF6E2', borderRadius: 16, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: '#FBE8BE' },
   etiquetteButtonDone: { backgroundColor: '#EFEFEF', borderColor: '#E1E1E1', opacity: 0.75 },
