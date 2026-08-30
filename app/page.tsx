@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { GameHeader } from '../src/components/GameHeader';
-import { PraiseCard, PraiseMailToggle } from '../src/components/PraiseCard';
+import { PraiseCard } from '../src/components/PraiseCard';
 import { VillageActivityCard } from '../src/components/VillageActivityCard';
 import { VillageProgress } from '../src/components/VillageProgress';
 import { VillageScene } from '../src/components/VillageScene';
@@ -120,6 +120,11 @@ export default function Home() {
   const nextResident = nextStage?.unlockedResidents.find((name) => !stage.unlockedResidents.includes(name));
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    const openTimer = window.setTimeout(() => setShowPraise(true), 700);
+    const closeTimer = window.setTimeout(() => setShowPraise(false), 5700);
+    return () => { window.clearTimeout(openTimer); window.clearTimeout(closeTimer); };
+  }, []);
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem('pogeun-star-village-save-v1') ?? 'null');
@@ -399,7 +404,6 @@ export default function Home() {
               ]}
             />
             <div className="side-panel">
-              <PraiseMailToggle onClick={() => setShowPraise((value) => !value)} />
               {showPraise && <PraiseCard onClose={() => setShowPraise(false)} />}
               <VillageActivityCard activities={VILLAGE_ACTIVITIES} isReady={(id) => isActivityReady(activityLog, id)} onComplete={completeActivity} />
               <VillageProgress
