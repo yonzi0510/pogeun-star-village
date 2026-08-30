@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './village-refresh.css';
 
 export const metadata: Metadata = {
   title: '포근별 마을',
