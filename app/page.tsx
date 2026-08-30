@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { GameHeader } from '../src/components/GameHeader';
-import { PraiseCard } from '../src/components/PraiseCard';
+import { PraiseCard, PraiseMailToggle } from '../src/components/PraiseCard';
+import { VillageActivityCard } from '../src/components/VillageActivityCard';
+import { VillageProgress } from '../src/components/VillageProgress';
 import { VillageScene } from '../src/components/VillageScene';
+import { getNextStage, getVillageStage, isActivityReady, VILLAGE_ACTIVITIES, withObjectParticle, type VillageActivity } from '../src/game/village';
 
 type Tab = '마을' | '친구' | '별뽑기' | '꾸미기' | '앨범';
 
@@ -110,6 +113,11 @@ export default function Home() {
   const [pendingPrize, setPendingPrize] = useState<string | null>(null);
   const [lastPrize, setLastPrize] = useState<string | null>(null);
   const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 45, y: 72 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
+  const [activityLog, setActivityLog] = useState<Record<string, string>>({});
+
+  const stage = getVillageStage(starlight);
+  const nextStage = getNextStage(stage);
+  const nextResident = nextStage?.unlockedResidents.find((name) => !stage.unlockedResidents.includes(name));
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
@@ -130,6 +138,7 @@ export default function Home() {
           setInsertedTokens(saved.insertedTokens);
           setGachaStage(saved.insertedTokens === 5 ? 'coin' : 'inserting');
         }
+        if (saved.activityLog && typeof saved.activityLog === 'object') setActivityLog(saved.activityLog);
       }
     } catch { /* a damaged save simply starts a fresh village */ }
     saveReady.current = true;
@@ -138,11 +147,11 @@ export default function Home() {
     if (!saveReady.current) return;
     const timer = window.setTimeout(() => {
       try {
-        window.localStorage.setItem('pogeun-star-village-save-v1', JSON.stringify({ tokens, starlight, owned, watered, letterOpened, sentLetters: sentLetters.slice(-20), collectedPets, activePet, petLove, positions, insertedTokens }));
+        window.localStorage.setItem('pogeun-star-village-save-v1', JSON.stringify({ tokens, starlight, owned, watered, letterOpened, sentLetters: sentLetters.slice(-20), collectedPets, activePet, petLove, positions, insertedTokens, activityLog }));
       } catch { /* private browsing or a full device store should not stop play */ }
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [tokens, starlight, owned, watered, letterOpened, sentLetters, collectedPets, activePet, petLove, positions, insertedTokens]);
+  }, [tokens, starlight, owned, watered, letterOpened, sentLetters, collectedPets, activePet, petLove, positions, insertedTokens, activityLog]);
   useEffect(() => {
     const timer = window.setInterval(() => setGameMinutes((value) => (value + 10) % 1440), 4000);
     return () => window.clearInterval(timer);
@@ -226,6 +235,25 @@ export default function Home() {
   function continueDialogue() {
     setRoomDialogue((current) => current ? { ...current, index: (current.index + 1) % friendDialogues[current.friend].length } : null);
     setRoomAction('talk');
+  }
+
+  function completeActivity(activity: VillageActivity) {
+    if (!isActivityReady(activityLog, activity.id)) {
+      setNotice('이 활동은 오늘 이미 실천했어요. 내일 다시 해봐요!');
+      return;
+    }
+    setTokens((value) => value + activity.tokens);
+    setStarlight((value) => value + activity.starlight);
+    setActivityLog((log) => ({ ...log, [activity.id]: new Date().toISOString() }));
+    setNotice(`${activity.name} 실천! 칭찬 토큰 +${activity.tokens}, 별빛 +${activity.starlight}`);
+  }
+
+  function lockedResidentTap(name: string) {
+    setNotice(`별빛을 더 모으면 ${withObjectParticle(name)} 만날 수 있어요!`);
+  }
+
+  function lockedBuildingTap() {
+    setNotice(`별빛이 모이면 이 자리를 덮은 구름이 걷혀요!`);
   }
 
   function selectPlayer() {
@@ -361,13 +389,26 @@ export default function Home() {
               onMovePlayer={movePlayer}
               onSelectPlayer={selectPlayer}
               onTalkTo={talkTo}
+              unlockedResidents={stage.unlockedResidents}
+              onLockedResident={lockedResidentTap}
+              onLockedBuilding={lockedBuildingTap}
               buildings={[
-                { key: 'house', hitClassName: 'house-hit', ariaLabel: '토끼집 문을 열고 모모몽의 집에 들어가기', onEnter: () => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다니며 루루별과 이야기할 수 있어요.' }) },
-                { key: 'garden', hitClassName: 'garden-hit', ariaLabel: '구름정원 입구로 들어가기', onEnter: () => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 물을 주고 포포와 이야기하는 정원이에요.' }) },
-                { key: 'post', hitClassName: 'post-hit', ariaLabel: '우체국 문을 열고 별빛우체국에 들어가기', onEnter: () => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지를 읽고 그리며 두리콩과 이야기하는 우체국이에요.' }) },
+                { key: 'house', hitClassName: 'house-hit', ariaLabel: '토끼집 문을 열고 모모몽의 집에 들어가기', unlocked: stage.unlockedBuildings.includes('house'), onEnter: () => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다니며 루루별과 이야기할 수 있어요.' }) },
+                { key: 'garden', hitClassName: 'garden-hit', ariaLabel: '구름정원 입구로 들어가기', unlocked: stage.unlockedBuildings.includes('garden'), onEnter: () => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 물을 주고 포포와 이야기하는 정원이에요.' }) },
+                { key: 'post', hitClassName: 'post-hit', ariaLabel: '우체국 문을 열고 별빛우체국에 들어가기', unlocked: stage.unlockedBuildings.includes('post'), onEnter: () => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지를 읽고 그리며 두리콩과 이야기하는 우체국이에요.' }) },
               ]}
             />
-            <PraiseCard />
+            <div className="side-panel">
+              <PraiseMailToggle onClick={() => setShowPraise((value) => !value)} />
+              {showPraise && <PraiseCard onClose={() => setShowPraise(false)} />}
+              <VillageActivityCard activities={VILLAGE_ACTIVITIES} isReady={(id) => isActivityReady(activityLog, id)} onComplete={completeActivity} />
+              <VillageProgress
+                starlight={starlight}
+                stage={stage}
+                nextStage={nextStage}
+                nextResidentHint={nextResident ? `곧 ${nextResident} 소식이 들려와요!` : null}
+              />
+            </div>
           </>
         ) : (
           <section className="home-grid background-world" aria-hidden="true">

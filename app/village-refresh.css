@@ -389,3 +389,165 @@
     transition: none !important;
   }
 }
+
+/* Village growth: locked residents/buildings + side-panel activity & progress cards. */
+
+.moving-character.locked img {
+  filter: grayscale(1) blur(.5px) brightness(.92);
+  opacity: .55;
+}
+
+.moving-character.locked:hover img,
+.moving-character.locked:focus-visible img {
+  transform: none;
+}
+
+.locked-tag {
+  background: rgba(255,255,255,.82) !important;
+  color: var(--village-muted) !important;
+}
+
+.map-hit.locked-door {
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.22);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+
+.locked-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255,255,255,.9);
+  background: rgba(255,253,247,.88);
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgba(77,56,44,.16);
+}
+
+.mini-card {
+  border: 1.5px solid rgba(255,255,255,.9);
+  border-radius: 18px;
+  background: rgba(255,253,247,.9);
+  box-shadow: 0 7px 18px rgba(92,68,50,.13);
+  backdrop-filter: blur(10px);
+  padding: 10px 12px;
+  margin-top: 7px;
+  color: var(--village-ink);
+}
+
+.mini-card-title {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.activity-group {
+  margin-top: 4px;
+}
+
+.activity-group > small {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--village-muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.activity-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.activity-chip {
+  position: relative;
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid rgba(255,255,255,.9);
+  border-radius: 12px;
+  background: var(--village-peach);
+  font-size: 17px;
+  cursor: pointer;
+  transition: transform .15s ease;
+}
+
+.activity-chip:hover {
+  transform: translateY(-2px);
+}
+
+.activity-chip.done {
+  background: #ececec;
+  opacity: .65;
+  filter: grayscale(.4);
+}
+
+.activity-chip i {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 15px;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #7fbf8a;
+  color: #fff;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.growth-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.growth-header strong {
+  font-size: 13px;
+  color: var(--village-ink);
+}
+
+.growth-header span {
+  color: var(--village-muted);
+  font-weight: 700;
+}
+
+.growth-track {
+  height: 10px;
+  margin: 8px 0 6px;
+  border-radius: 8px;
+  background: rgba(157,138,216,.22);
+  overflow: hidden;
+}
+
+.growth-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #9d8ad8;
+  transition: width .35s ease;
+}
+
+.growth-card p {
+  margin: 0;
+  color: var(--village-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .mini-card {
+    padding: 7px 9px;
+    margin-top: 5px;
+  }
+
+  .activity-chip {
+    width: 25px;
+    height: 25px;
+    font-size: 12px;
+  }
+}
