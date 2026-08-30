@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { GameHeader } from '../src/components/GameHeader';
+import { PraiseCard } from '../src/components/PraiseCard';
+import { VillageScene } from '../src/components/VillageScene';
 
 type Tab = '마을' | '친구' | '별뽑기' | '꾸미기' | '앨범';
 
@@ -107,7 +110,6 @@ export default function Home() {
   const [pendingPrize, setPendingPrize] = useState<string | null>(null);
   const [lastPrize, setLastPrize] = useState<string | null>(null);
   const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 45, y: 72 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
-  const resident = residents.find((entry) => entry.name === selected) ?? residents[1];
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
@@ -226,6 +228,11 @@ export default function Home() {
     setRoomAction('talk');
   }
 
+  function selectPlayer() {
+    setSelected('모모몽');
+    setNotice('넓어진 마을 바닥을 눌러 모모몽을 움직여 보세요!');
+  }
+
   function talkTo(name: string, index: number, activity: string) {
     const destination = positions[index] ?? { x: 50, y: 65 };
     setPositions((current) => current.map((position, positionIndex) => positionIndex === 1 ? { x: Math.max(15, destination.x - 8), y: destination.y } : position));
@@ -339,25 +346,36 @@ export default function Home() {
     <main className={`game-shell ${allowPortrait ? 'portrait-allowed' : ''}`}>
       <div className="sky-decor" aria-hidden="true"><span>☁️</span><span>✨</span><span>☁️</span></div>
       <div className="game-frame" aria-hidden={building ? true : undefined}>
-        <header className={`topbar ${tab === '마을' ? 'village-topbar' : ''}`}>
-          <div><p className="eyebrow">칭찬이 별빛이 되는 곳</p><h1>포근별 마을 <span>✨</span></h1></div>
-          <div className="stats" aria-label="게임 재화">
-            <div className="stat token-stat"><img src="/praise-token-3d.png" alt="" /><p>칭찬 토큰<strong>{tokens}</strong></p></div>
-            <div className="stat"><span>💫</span><p>별빛<strong>{starlight}</strong></p></div>
-            <div className="stat clock"><span>🌤️</span><p>포근한 아침<strong>{timeLabel}</strong></p></div>
-          </div>
-        </header>
+        <GameHeader tokens={tokens} starlight={starlight} timeLabel={timeLabel} isVillageTab={tab === '마을'} />
 
-        <section className={`home-grid ${tab !== '마을' ? 'background-world' : ''}`} aria-hidden={tab !== '마을'}>
-          <div className="village-card illustrated">
-            <img src="/village-map-expanded-v2.png" alt="산책할 수 있는 넓어진 포근별 마을" />
-            <div className="map-walk-layer" onPointerDown={movePlayer} role="application" aria-label="눌러서 모모몽을 이동시키는 마을 지도" />
-            <button className="map-hit door-hit house-hit" aria-label="토끼집 문을 열고 모모몽의 집에 들어가기" onClick={() => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다니며 루루별과 이야기할 수 있어요.' })} />
-            <button className="map-hit door-hit garden-hit" aria-label="구름정원 입구로 들어가기" onClick={() => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 물을 주고 포포와 이야기하는 정원이에요.' })} />
-            <button className="map-hit door-hit post-hit" aria-label="우체국 문을 열고 별빛우체국에 들어가기" onClick={() => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지를 읽고 그리며 두리콩과 이야기하는 우체국이에요.' })} />
-            <div className="moving-layer"><button className={`moving-character player ${villageWalking ? 'walking' : ''} selected`} style={{ left: `${positions[1]?.x ?? 50}%`, top: `${positions[1]?.y ?? 65}%` }} onClick={(event) => { event.stopPropagation(); setNotice('넓어진 마을 바닥을 눌러 모모몽을 움직여 보세요!'); }} aria-label="내 캐릭터 모모몽"><img src="/momomong.png" alt="" /><span>내 모모몽</span></button></div>
-          </div>
-        </section>
+        {tab === '마을' ? (
+          <>
+            <VillageScene
+              mapSrc="/village-map-expanded-v2.png"
+              mapAlt="산책할 수 있는 넓어진 포근별 마을"
+              residents={residents}
+              positions={positions}
+              playerIndex={1}
+              selected={selected}
+              walking={villageWalking}
+              onMovePlayer={movePlayer}
+              onSelectPlayer={selectPlayer}
+              onTalkTo={talkTo}
+              buildings={[
+                { key: 'house', hitClassName: 'house-hit', ariaLabel: '토끼집 문을 열고 모모몽의 집에 들어가기', onEnter: () => enterBuilding({ name: '모모몽의 집', icon: '🏡', message: '침대와 가구 사이를 직접 걸어 다니며 루루별과 이야기할 수 있어요.' }) },
+                { key: 'garden', hitClassName: 'garden-hit', ariaLabel: '구름정원 입구로 들어가기', onEnter: () => enterBuilding({ name: '구름정원', icon: '🌳', message: '꽃밭까지 걸어가 물을 주고 포포와 이야기하는 정원이에요.' }) },
+                { key: 'post', hitClassName: 'post-hit', ariaLabel: '우체국 문을 열고 별빛우체국에 들어가기', onEnter: () => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지를 읽고 그리며 두리콩과 이야기하는 우체국이에요.' }) },
+              ]}
+            />
+            <PraiseCard />
+          </>
+        ) : (
+          <section className="home-grid background-world" aria-hidden="true">
+            <div className="village-card illustrated">
+              <img src="/village-map-expanded-v2.png" alt="" />
+            </div>
+          </section>
+        )}
 
         {tab === '친구' && <section className="content-card"><p className="eyebrow">포근별 마을</p><h2>친구</h2><div className="card-grid">{residents.map((entry) => <button key={entry.name} className={`friend-card ${entry.color}`} onClick={() => setNotice(entry.activity)}><img className="friend-sprite" src={entry.sprite} alt="" /><strong>{entry.name}</strong><p>{entry.activity}</p></button>)}</div></section>}
 
