@@ -7,14 +7,16 @@ import { VillageActivityCard } from '../src/components/VillageActivityCard';
 import { VillageProgress } from '../src/components/VillageProgress';
 import { VillageScene } from '../src/components/VillageScene';
 import { getNextStage, getVillageStage, isActivityReady, VILLAGE_ACTIVITIES, withObjectParticle, type VillageActivity } from '../src/game/village';
+import { getResidentActivity } from '../src/game/schedule';
+import { getActiveSeasonalEvent } from '../src/game/calendar';
 
 type Tab = '마을' | '친구' | '별뽑기' | '꾸미기' | '앨범';
 
 const residents = [
-  { name: '포포', sprite: '/popo.png', portrait: 'p1', color: 'mint', activity: '구름정원에 물 주는 중' },
-  { name: '모모몽', sprite: '/momomong.png', portrait: 'p0', color: 'peach', activity: '광장에서 산책하는 중' },
-  { name: '두리콩', sprite: '/durikong.png', portrait: 'p2', color: 'butter', activity: '칭찬 편지를 배달하는 중' },
-  { name: '루루별', sprite: '/lurustar.png', portrait: 'p3', color: 'lavender', activity: '별빛을 찾으러 걷는 중' },
+  { name: '포포', sprite: '/popo.png', portrait: 'p1', color: 'mint' },
+  { name: '모모몽', sprite: '/momomong.png', portrait: 'p0', color: 'peach' },
+  { name: '두리콩', sprite: '/durikong.png', portrait: 'p2', color: 'butter' },
+  { name: '루루별', sprite: '/lurustar.png', portrait: 'p3', color: 'lavender' },
 ];
 
 const friendDialogues: Record<string, string[]> = {
@@ -114,12 +116,20 @@ export default function Home() {
   const [lastPrize, setLastPrize] = useState<string | null>(null);
   const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 45, y: 72 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
   const [activityLog, setActivityLog] = useState<Record<string, string>>({});
+  // 마운트 전에는 null: 서버와 클라이언트의 new Date()가 어긋나는 hydration mismatch를 막는다.
+  const [now, setNow] = useState<Date | null>(null);
 
   const stage = getVillageStage(starlight);
   const nextStage = getNextStage(stage);
   const nextResident = nextStage?.unlockedResidents.find((name) => !stage.unlockedResidents.includes(name));
+  const seasonalEvent = getActiveSeasonalEvent(now);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    const initial = window.setTimeout(() => setNow(new Date()), 0);
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+  }, []);
   useEffect(() => {
     const openTimer = window.setTimeout(() => setShowPraise(true), 700);
     const closeTimer = window.setTimeout(() => setShowPraise(false), 5700);
@@ -266,14 +276,14 @@ export default function Home() {
     setNotice('넓어진 마을 바닥을 눌러 모모몽을 움직여 보세요!');
   }
 
-  function talkTo(name: string, index: number, activity: string) {
+  function talkTo(name: string, index: number) {
     const destination = positions[index] ?? { x: 50, y: 65 };
     setPositions((current) => current.map((position, positionIndex) => positionIndex === 1 ? { x: Math.max(15, destination.x - 8), y: destination.y } : position));
     setSelected(name);
     setVillageWalking(true);
     if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
     villageMotionTimer.current = window.setTimeout(() => setVillageWalking(false), 850);
-    setNotice(`${name}: ${activity}`);
+    setNotice(`${name}: ${getResidentActivity(name, now)}`);
   }
 
   function selectTab(nextTab: Tab) {
@@ -395,6 +405,8 @@ export default function Home() {
               onSelectPlayer={selectPlayer}
               onTalkTo={talkTo}
               unlockedResidents={stage.unlockedResidents}
+              seasonalEvent={seasonalEvent}
+              now={now}
               onLockedResident={lockedResidentTap}
               onLockedBuilding={lockedBuildingTap}
               buildings={[
@@ -422,7 +434,7 @@ export default function Home() {
           </section>
         )}
 
-        {tab === '친구' && <section className="content-card"><p className="eyebrow">포근별 마을</p><h2>친구</h2><div className="card-grid">{residents.map((entry) => <button key={entry.name} className={`friend-card ${entry.color}`} onClick={() => setNotice(entry.activity)}><img className="friend-sprite" src={entry.sprite} alt="" /><strong>{entry.name}</strong><p>{entry.activity}</p></button>)}</div></section>}
+        {tab === '친구' && <section className="content-card"><p className="eyebrow">포근별 마을</p><h2>친구</h2><div className="card-grid">{residents.map((entry) => <button key={entry.name} className={`friend-card ${entry.color}`} onClick={() => setNotice(getResidentActivity(entry.name, now))}><img className="friend-sprite" src={entry.sprite} alt="" /><strong>{entry.name}</strong><p>{getResidentActivity(entry.name, now)}</p></button>)}</div></section>}
 
         {tab === '별뽑기' && <section className="content-card gacha-card"><p className="eyebrow">토큰을 하나씩 넣고 손잡이를 직접 돌려요</p><h2>포근별 캡슐 가챠</h2><div className="gacha-grid"><div className="star-machine dimensional"><div className={`physical-gacha art-machine ${gachaStage}`}><img className="machine-art" src="/gacha-machine.png" alt="포근별 캡슐 가챠 기계" /><div className="token-meter" aria-label={`토큰 ${insertedTokens}/5개 투입`}>{[0,1,2,3,4].map((index) => <i key={index} className={index < insertedTokens ? 'filled' : ''}><img src="/praise-token-3d.png" alt="" /></i>)}</div><button className={`coin-slot art-control ${gachaStage === 'coin' ? 'ready' : ''}`} onClick={insertGachaToken} disabled={!['idle','inserting','opened'].includes(gachaStage)} aria-label="칭찬 토큰 한 개 넣기"><img src="/praise-token-3d.png" alt="" />톡 넣기</button><button className={`gacha-knob art-control ${gachaStage === 'coin' ? 'ready' : ''}`} onPointerDown={startKnobTurn} onPointerMove={moveKnobTurn} onPointerUp={() => knobDrag.current.active = false} onPointerCancel={() => knobDrag.current.active = false} disabled={gachaStage !== 'coin'} style={{ transform: `rotate(${knobAngle}deg)` }} aria-label="손가락으로 가챠 손잡이 돌리기"><i /><strong>{gachaStage === 'coin' ? '빙글 돌려요' : '잠김'}</strong></button><div className="capsule-chute art-control">{gachaStage === 'dropped' ? <button className="dropped-capsule" onClick={openGachaCapsule} aria-label="나온 캡슐 열기"><img src="/capsule-3d.png" alt="" /><span>톡! 열기</span></button> : <span>{gachaStage === 'rattling' ? '달그락 달그락…' : '캡슐 나오는 곳'}</span>}</div>{lastPrize && gachaStage === 'opened' && <div className="prize-reveal"><img src={residents.find((entry) => entry.name === lastPrize)?.sprite} alt={`${lastPrize} 등장`} /><strong>{lastPrize}!</strong></div>}</div><p className="gacha-guide">① 토큰을 5번 눌러 넣기　② 손잡이를 손가락으로 한 바퀴 돌리기　③ 캡슐 열기</p><small>가족에게 받은 칭찬 토큰만 사용해요.</small></div><div className="pet-care">{(() => { const pet = residents.find((entry) => entry.name === activePet) ?? residents[1]; const love = petLove[activePet] ?? 20; return <><p className="pet-name"><small>나의 포근펫</small><strong>{pet.name}</strong></p><img src={pet.sprite} alt={`${pet.name} 돌보기`} /><div className="love-label"><span>애정도</span><strong>{love}/100 💗</strong></div><div className="love-meter"><i style={{ width: `${love}%` }} /></div><div className="care-actions"><button onClick={() => carePet('별쿠키를 주었어요')}>🍪 간식</button><button onClick={() => carePet('신나게 놀아주었어요')}>🧸 놀기</button><button onClick={() => carePet('포근하게 쓰다듬었어요')}>🫶 쓰담</button></div></>; })()}</div></div><div className="pet-collection"><strong>만난 친구들 {collectedPets.length}/{residents.length}</strong><div>{residents.map((pet) => <button key={pet.name} className={collectedPets.includes(pet.name) ? '' : 'locked'} disabled={!collectedPets.includes(pet.name)} onClick={() => setActivePet(pet.name)}><img src={pet.sprite} alt="" /><span>{collectedPets.includes(pet.name) ? pet.name : '아직 비밀'}</span></button>)}</div></div></section>}
 

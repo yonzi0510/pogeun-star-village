@@ -1,12 +1,13 @@
 'use client';
 
 import type { PointerEvent } from 'react';
+import { getResidentActivity } from '../game/schedule';
+import type { SeasonalEvent } from '../game/calendar';
 
 export type VillageResident = {
   name: string;
   sprite: string;
   color: string;
-  activity: string;
 };
 
 export type VillageBuildingHit = {
@@ -27,9 +28,11 @@ type Props = {
   walking: boolean;
   buildings: VillageBuildingHit[];
   unlockedResidents: string[];
+  seasonalEvent: SeasonalEvent | null;
+  now: Date | null;
   onMovePlayer: (event: PointerEvent<HTMLDivElement>) => void;
   onSelectPlayer: () => void;
-  onTalkTo: (name: string, index: number, activity: string) => void;
+  onTalkTo: (name: string, index: number) => void;
   onLockedResident: (name: string) => void;
   onLockedBuilding: () => void;
 };
@@ -47,6 +50,8 @@ export function VillageScene({
   walking,
   buildings,
   unlockedResidents,
+  seasonalEvent,
+  now,
   onMovePlayer,
   onSelectPlayer,
   onTalkTo,
@@ -59,6 +64,15 @@ export function VillageScene({
     <section className="home-grid">
       <div className="village-card illustrated">
         <img src={mapSrc} alt={mapAlt} />
+        {seasonalEvent && (
+          <div className="seasonal-banner">
+            <span>{seasonalEvent.emoji}</span>
+            <div>
+              <strong>{seasonalEvent.name}</strong>
+              <p>{seasonalEvent.message}</p>
+            </div>
+          </div>
+        )}
         <div
           className="map-walk-layer"
           onPointerDown={onMovePlayer}
@@ -95,7 +109,7 @@ export function VillageScene({
                 onClick={(event) => {
                   event.stopPropagation();
                   if (isPlayer) onSelectPlayer();
-                  else if (isUnlocked) onTalkTo(entry.name, index, entry.activity);
+                  else if (isUnlocked) onTalkTo(entry.name, index);
                   else onLockedResident(entry.name);
                 }}
                 aria-label={isPlayer ? '내 캐릭터 모모몽' : isUnlocked ? `${entry.name}에게 다가가기` : `아직 만나지 못한 주민`}
@@ -109,7 +123,7 @@ export function VillageScene({
         </div>
         <div className="speech" role="status">
           <strong>{focusedResident.name}</strong>
-          <span>{focusedResident.activity}</span>
+          <span>{getResidentActivity(focusedResident.name, now)}</span>
         </div>
       </div>
     </section>
