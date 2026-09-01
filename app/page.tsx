@@ -81,6 +81,7 @@ function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
 
 export default function Home() {
   const saveReady = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const [allowPortrait, setAllowPortrait] = useState(false);
   const [showPraise, setShowPraise] = useState(false);
   const [tab, setTab] = useState<Tab>('마을');
@@ -123,6 +124,38 @@ export default function Home() {
   const nextStage = getNextStage(stage);
   const nextResident = nextStage?.unlockedResidents.find((name) => !stage.unlockedResidents.includes(name));
   const seasonalEvent = getActiveSeasonalEvent(now);
+
+  function playGachaSound(kind: 'coin' | 'rattle' | 'drop' | 'reveal') {
+    try {
+      const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      const context = audioContextRef.current ?? new AudioContextCtor();
+      audioContextRef.current = context;
+      void context.resume();
+      const startedAt = context.currentTime;
+      const notes = kind === 'coin'
+        ? [{ frequency: 880, offset: 0, duration: .045 }, { frequency: 1320, offset: .045, duration: .055 }]
+        : kind === 'rattle'
+          ? [{ frequency: 210, offset: 0, duration: .055 }, { frequency: 180, offset: .075, duration: .055 }, { frequency: 260, offset: .15, duration: .06 }]
+          : kind === 'drop'
+            ? [{ frequency: 320, offset: 0, duration: .08 }, { frequency: 190, offset: .09, duration: .08 }]
+            : [{ frequency: 784, offset: 0, duration: .12 }, { frequency: 1046, offset: .08, duration: .14 }, { frequency: 1568, offset: .19, duration: .18 }];
+      notes.forEach((note) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = kind === 'rattle' ? 'square' : 'sine';
+        oscillator.frequency.setValueAtTime(note.frequency, startedAt + note.offset);
+        gain.gain.setValueAtTime(0.0001, startedAt + note.offset);
+        gain.gain.exponentialRampToValueAtTime(kind === 'reveal' ? 0.08 : 0.055, startedAt + note.offset + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startedAt + note.offset + note.duration);
+        oscillator.connect(gain).connect(context.destination);
+        oscillator.start(startedAt + note.offset);
+        oscillator.stop(startedAt + note.offset + note.duration + 0.03);
+      });
+    } catch {
+      /* Some browsers block audio; the game keeps working silently. */
+    }
+  }
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
@@ -331,6 +364,7 @@ export default function Home() {
     if (tokens < 1) return setNotice('넣을 칭찬 토큰이 없어요!');
     const restarting = gachaStage === 'opened';
     const next = restarting ? 1 : insertedTokens + 1;
+    playGachaSound('coin');
     setTokens((value) => value - 1); setInsertedTokens(next); setLastPrize(null); setPendingPrize(null);
     setGachaStage(next === 5 ? 'coin' : 'inserting');
     setNotice(next === 5 ? '토큰 5개를 모두 넣었어요. 손잡이를 한 바퀴 돌려요!' : `토큰을 하나 넣었어요. ${next}/5`);
@@ -356,8 +390,10 @@ export default function Home() {
   }
 
   function startGachaRattle() {
+    playGachaSound('rattle');
     setGachaStage('rattling'); setNotice('달그락, 달그락… 어떤 캡슐이 나올까요?');
     window.setTimeout(() => {
+      playGachaSound('drop');
       const prize = residents[Math.floor(Math.random() * residents.length)];
       setPendingPrize(prize.name); setGachaStage('dropped'); setNotice('달그락! 캡슐이 나왔어요. 눌러서 열어 보세요!');
     }, 2200);
@@ -365,6 +401,7 @@ export default function Home() {
 
   function openGachaCapsule() {
     if (gachaStage !== 'dropped' || !pendingPrize) return;
+    playGachaSound('reveal');
     const prize = residents.find((entry) => entry.name === pendingPrize) ?? residents[1];
     const duplicate = collectedPets.includes(prize.name);
     setLastPrize(prize.name); setActivePet(prize.name); setGachaStage('opened'); setInsertedTokens(0);
@@ -436,7 +473,7 @@ export default function Home() {
 
         {tab === '친구' && <section className="content-card"><p className="eyebrow">포근별 마을</p><h2>친구</h2><div className="card-grid">{residents.map((entry) => <button key={entry.name} className={`friend-card ${entry.color}`} onClick={() => setNotice(getResidentActivity(entry.name, now))}><img className="friend-sprite" src={entry.sprite} alt="" /><strong>{entry.name}</strong><p>{getResidentActivity(entry.name, now)}</p></button>)}</div></section>}
 
-        {tab === '별뽑기' && <section className="content-card gacha-card"><p className="eyebrow">토큰을 하나씩 넣고 손잡이를 직접 돌려요</p><h2>포근별 캡슐 가챠</h2><div className="gacha-grid"><div className="star-machine dimensional"><div className={`physical-gacha art-machine ${gachaStage}`}><img className="machine-art" src="/gacha-machine.png" alt="포근별 캡슐 가챠 기계" /><div className="token-meter" aria-label={`토큰 ${insertedTokens}/5개 투입`}>{[0,1,2,3,4].map((index) => <i key={index} className={index < insertedTokens ? 'filled' : ''}><img src="/praise-token-3d.png" alt="" /></i>)}</div><button className={`coin-slot art-control ${gachaStage === 'coin' ? 'ready' : ''}`} onClick={insertGachaToken} disabled={!['idle','inserting','opened'].includes(gachaStage)} aria-label="칭찬 토큰 한 개 넣기"><img src="/praise-token-3d.png" alt="" />톡 넣기</button><button className={`gacha-knob art-control ${gachaStage === 'coin' ? 'ready' : ''}`} onPointerDown={startKnobTurn} onPointerMove={moveKnobTurn} onPointerUp={() => knobDrag.current.active = false} onPointerCancel={() => knobDrag.current.active = false} disabled={gachaStage !== 'coin'} style={{ transform: `rotate(${knobAngle}deg)` }} aria-label="손가락으로 가챠 손잡이 돌리기"><i /><strong>{gachaStage === 'coin' ? '빙글 돌려요' : '잠김'}</strong></button><div className="capsule-chute art-control">{gachaStage === 'dropped' ? <button className="dropped-capsule" onClick={openGachaCapsule} aria-label="나온 캡슐 열기"><img src="/capsule-3d.png" alt="" /><span>톡! 열기</span></button> : <span>{gachaStage === 'rattling' ? '달그락 달그락…' : '캡슐 나오는 곳'}</span>}</div>{lastPrize && gachaStage === 'opened' && <div className="prize-reveal"><img src={residents.find((entry) => entry.name === lastPrize)?.sprite} alt={`${lastPrize} 등장`} /><strong>{lastPrize}!</strong></div>}</div><p className="gacha-guide">① 토큰을 5번 눌러 넣기　② 손잡이를 손가락으로 한 바퀴 돌리기　③ 캡슐 열기</p><small>가족에게 받은 칭찬 토큰만 사용해요.</small></div><div className="pet-care">{(() => { const pet = residents.find((entry) => entry.name === activePet) ?? residents[1]; const love = petLove[activePet] ?? 20; return <><p className="pet-name"><small>나의 포근펫</small><strong>{pet.name}</strong></p><img src={pet.sprite} alt={`${pet.name} 돌보기`} /><div className="love-label"><span>애정도</span><strong>{love}/100 💗</strong></div><div className="love-meter"><i style={{ width: `${love}%` }} /></div><div className="care-actions"><button onClick={() => carePet('별쿠키를 주었어요')}>🍪 간식</button><button onClick={() => carePet('신나게 놀아주었어요')}>🧸 놀기</button><button onClick={() => carePet('포근하게 쓰다듬었어요')}>🫶 쓰담</button></div></>; })()}</div></div><div className="pet-collection"><strong>만난 친구들 {collectedPets.length}/{residents.length}</strong><div>{residents.map((pet) => <button key={pet.name} className={collectedPets.includes(pet.name) ? '' : 'locked'} disabled={!collectedPets.includes(pet.name)} onClick={() => setActivePet(pet.name)}><img src={pet.sprite} alt="" /><span>{collectedPets.includes(pet.name) ? pet.name : '아직 비밀'}</span></button>)}</div></div></section>}
+        {tab === '별뽑기' && <section className={`content-card gacha-card ${gachaStage === 'opened' ? 'is-revealing' : ''}`}><p className="eyebrow">토큰을 하나씩 넣고 손잡이를 직접 돌려요</p><h2>포근별 캡슐 가챠</h2><div className="gacha-grid"><div className="star-machine dimensional"><div className={`physical-gacha art-machine ${gachaStage}`}><img className="machine-art" src="/gacha-machine.png" alt="포근별 캡슐 가챠 기계" /><div className="token-meter" aria-label={`토큰 ${insertedTokens}/5개 투입`}>{[0,1,2,3,4].map((index) => <i key={index} className={index < insertedTokens ? 'filled' : ''}><img src="/praise-token-3d.png" alt="" /></i>)}</div><button className={`coin-slot art-control ${gachaStage === 'coin' ? 'ready' : ''}`} onClick={insertGachaToken} disabled={!['idle','inserting','opened'].includes(gachaStage)} aria-label="칭찬 토큰 한 개 넣기"><img src="/praise-token-3d.png" alt="" />톡 넣기</button><button className={`gacha-knob art-control ${gachaStage === 'coin' ? 'ready' : ''}`} onPointerDown={startKnobTurn} onPointerMove={moveKnobTurn} onPointerUp={() => knobDrag.current.active = false} onPointerCancel={() => knobDrag.current.active = false} disabled={gachaStage !== 'coin'} style={{ transform: `rotate(${knobAngle}deg)` }} aria-label="손가락으로 가챠 손잡이 돌리기"><i /><strong>{gachaStage === 'coin' ? '빙글 돌려요' : '잠김'}</strong></button><div className="capsule-chute art-control">{gachaStage === 'dropped' ? <button className="dropped-capsule" onClick={openGachaCapsule} aria-label="나온 캡슐 열기"><img src="/capsule-3d.png" alt="" /><span>톡! 열기</span></button> : <span>{gachaStage === 'rattling' ? '달그락 달그락…' : '캡슐 나오는 곳'}</span>}</div>{lastPrize && gachaStage === 'opened' && <div className="prize-reveal grand-prize"><div className="prize-burst" aria-hidden="true">{[0,1,2,3,4,5,6,7,8,9].map((spark) => <i key={spark} />)}</div><img src={residents.find((entry) => entry.name === lastPrize)?.sprite} alt={`${lastPrize} 등장`} /><small>포근별 친구 등장</small><strong>{lastPrize}!</strong><span>반짝 캡슐에서 나왔어요</span></div>}</div><p className="gacha-guide">① 토큰을 5번 눌러 넣기　② 손잡이를 손가락으로 한 바퀴 돌리기　③ 캡슐 열기</p><small>가족에게 받은 칭찬 토큰만 사용해요.</small></div><div className="pet-care">{(() => { const pet = residents.find((entry) => entry.name === activePet) ?? residents[1]; const love = petLove[activePet] ?? 20; return <><p className="pet-name"><small>나의 포근펫</small><strong>{pet.name}</strong></p><img src={pet.sprite} alt={`${pet.name} 돌보기`} /><div className="love-label"><span>애정도</span><strong>{love}/100 💗</strong></div><div className="love-meter"><i style={{ width: `${love}%` }} /></div><div className="care-actions"><button onClick={() => carePet('별쿠키를 주었어요')}>🍪 간식</button><button onClick={() => carePet('신나게 놀아주었어요')}>🧸 놀기</button><button onClick={() => carePet('포근하게 쓰다듬었어요')}>🫶 쓰담</button></div></>; })()}</div></div><div className="pet-collection"><strong>만난 친구들 {collectedPets.length}/{residents.length}</strong><div>{residents.map((pet) => <button key={pet.name} className={collectedPets.includes(pet.name) ? '' : 'locked'} disabled={!collectedPets.includes(pet.name)} onClick={() => setActivePet(pet.name)}><img src={pet.sprite} alt="" /><span>{collectedPets.includes(pet.name) ? pet.name : '아직 비밀'}</span></button>)}</div></div></section>}
 
         {tab === '꾸미기' && <section className="content-card"><p className="eyebrow">칭찬 토큰으로 꾸며요</p><h2>꾸미기</h2><div className="card-grid items">{items.map((item) => <button key={item.id} className="item-card" onClick={() => buy(item)}><span>{item.emoji}</span><strong>{item.name}</strong><em>{owned.includes(item.id) ? '보유 중' : `⭐ ${item.cost}`}</em></button>)}</div></section>}
 
