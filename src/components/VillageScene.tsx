@@ -123,6 +123,7 @@ export function VillageScene({
         </div>
         <div className="moving-layer">
           {residents.map((entry, index) => {
+            if (index !== playerIndex) return null;
             const position = positions[index] ?? { x: 50, y: 65 };
             const isPlayer = index === playerIndex;
             const isSelected = selected === entry.name;

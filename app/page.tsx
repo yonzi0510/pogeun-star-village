@@ -123,7 +123,7 @@ export default function Home() {
   const knobDrag = useRef({ active: false, lastAngle: 0, distance: 0 });
   const [pendingPrize, setPendingPrize] = useState<string | null>(null);
   const [lastPrize, setLastPrize] = useState<string | null>(null);
-  const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 45, y: 72 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
+  const [positions, setPositions] = useState([{ x: 34, y: 65 }, { x: 50, y: 86 }, { x: 57, y: 64 }, { x: 68, y: 73 }]);
   const [activityLog, setActivityLog] = useState<Record<string, string>>({});
   // 마운트 전에는 null: 서버와 클라이언트의 new Date()가 어긋나는 hydration mismatch를 막는다.
   const [now, setNow] = useState<Date | null>(null);
@@ -190,7 +190,12 @@ export default function Home() {
         if (saved.gachaCollection && typeof saved.gachaCollection === 'object') setGachaCollection(saved.gachaCollection);
         if (typeof saved.activePet === 'string') setActivePet(saved.activePet);
         if (saved.petLove && typeof saved.petLove === 'object') setPetLove(saved.petLove);
-        if (Array.isArray(saved.positions) && saved.positions.length === residents.length) setPositions(saved.positions);
+        if (Array.isArray(saved.positions) && saved.positions.length === residents.length) {
+          const nextPositions = [...saved.positions];
+          const savedPlayerPosition = nextPositions[1] ?? { x: 50, y: 86 };
+          nextPositions[1] = getClearVillageSpot(savedPlayerPosition.x, savedPlayerPosition.y);
+          setPositions(nextPositions);
+        }
         if (typeof saved.insertedTokens === 'number' && saved.insertedTokens > 0 && saved.insertedTokens <= 5) {
           setInsertedTokens(saved.insertedTokens);
           setGachaStage(saved.insertedTokens === 5 ? 'coin' : 'inserting');
@@ -244,11 +249,28 @@ export default function Home() {
 
   const timeLabel = `${String(Math.floor(gameMinutes / 60)).padStart(2, '0')}:${String(gameMinutes % 60).padStart(2, '0')}`;
 
+  function getClearVillageSpot(x: number, y: number) {
+    let next = { x, y };
+    for (const neighbor of socialNeighbors) {
+      const closeX = Math.abs(next.x - neighbor.x) < 8;
+      const closeY = Math.abs(next.y - neighbor.y) < 9;
+      if (closeX && closeY) {
+        const offset = neighbor.x > 52 ? -11 : 11;
+        next = {
+          x: Math.max(10, Math.min(90, neighbor.x + offset)),
+          y: Math.max(28, Math.min(87, neighbor.y + 4)),
+        };
+      }
+    }
+    return next;
+  }
+
   function movePlayer(event: PointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.parentElement?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
     const x = Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(25, Math.min(88, ((event.clientY - rect.top) / rect.height) * 100));
-    setPositions((current) => current.map((position, index) => index === 1 ? { x, y } : position));
+    const next = getClearVillageSpot(x, y);
+    setPositions((current) => current.map((position, index) => index === 1 ? next : position));
     setSelected('모모몽');
     setVillageWalking(true);
     if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
@@ -320,7 +342,11 @@ export default function Home() {
 
   function socializeWithNeighbor(neighbor: (typeof socialNeighbors)[number]) {
     const activity = VILLAGE_ACTIVITIES.find((entry) => entry.id === neighbor.activityId);
-    setPositions((current) => current.map((position, index) => index === 1 ? { x: Math.max(12, neighbor.x - 7), y: neighbor.y } : position));
+    const approach = {
+      x: Math.max(10, Math.min(90, neighbor.x + (neighbor.x > 52 ? -12 : 12))),
+      y: Math.max(28, Math.min(87, neighbor.y + 4)),
+    };
+    setPositions((current) => current.map((position, index) => index === 1 ? approach : position));
     setSelected('모모몽');
     setVillageWalking(true);
     if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
