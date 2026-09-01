@@ -453,23 +453,23 @@ export default function Home() {
         {roomAction && <div className={`room-action-effect ${roomAction}`} style={{ left: `${roomPosition.x}%`, top: `${roomPosition.y}%` }} aria-hidden="true"><i /><i /><i /></div>}
         {building.name === '모모몽의 집' && <>
           <img className="room-npc home-npc" src="/lurustar.png" alt="집에 놀러 온 루루별" />
-          <button className="world-hotspot friend-talk-spot home-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('루루별', 55, 48); }} aria-label="루루별과 이야기하기"><span>루루별과 이야기</span></button>
-          <button className="world-hotspot home-bed-spot" onClick={(event) => { event.stopPropagation(); walkTo(25, 34, () => setNotice('모모몽이 구름 침대에 누워 포근하게 쉬고 있어요.'), 'sleep'); }}><span>구름 침대에 눕기</span></button>
-          <button className="world-hotspot home-toy-spot" onClick={(event) => { event.stopPropagation(); walkTo(61, 42, () => setNotice('모모몽이 장난감 친구들과 폴짝폴짝 놀고 있어요!'), 'play'); }}><span>장난감으로 놀기</span></button>
-          <button className="world-hotspot home-sofa-spot" onClick={(event) => { event.stopPropagation(); walkTo(83, 43, () => setNotice('모모몽이 리본 소파에 앉아 발을 흔들고 있어요.'), 'sit'); }}><span>리본 소파에 앉기</span></button>
+          <button className="world-hotspot friend-talk-spot home-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('루루별', 54, 52); }} aria-label="루루별과 이야기하기"><span>루루별과 이야기</span></button>
+          <button className="world-hotspot home-bed-spot" onClick={(event) => { event.stopPropagation(); walkTo(19, 52, () => setNotice('모모몽이 구름 침대에 누워 포근하게 쉬고 있어요.'), 'sleep'); }}><span>구름 침대에 눕기</span></button>
+          <button className="world-hotspot home-toy-spot" onClick={(event) => { event.stopPropagation(); walkTo(60, 51, () => setNotice('모모몽이 장난감 친구들과 폴짝폴짝 놀고 있어요!'), 'play'); }}><span>장난감으로 놀기</span></button>
+          <button className="world-hotspot home-sofa-spot" onClick={(event) => { event.stopPropagation(); walkTo(82, 55, () => setNotice('모모몽이 리본 소파에 앉아 발을 흔들고 있어요.'), 'sit'); }}><span>리본 소파에 앉기</span></button>
           <div className="room-owned-tray">{owned.length ? owned.map((id) => { const item = items.find((entry) => entry.id === id); return item && <button key={id} onClick={() => setNotice(`${item.name}도 집 안에 예쁘게 놓여 있어요!`)}>{item.name}</button>; }) : <span>바닥을 눌러 집 안을 걸어 보세요</span>}</div>
         </>}
         {building.name === '구름정원' && <>
           <img className="room-npc garden-npc" src="/popo.png" alt="정원에서 기다리는 포포" />
-          <button className="world-hotspot friend-talk-spot garden-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('포포', 34, 55); }} aria-label="포포와 이야기하기"><span>포포와 이야기</span></button>
+          <button className="world-hotspot friend-talk-spot garden-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('포포', 29, 61); }} aria-label="포포와 이야기하기"><span>포포와 이야기</span></button>
           <div className="room-quest-bubble"><strong>포포의 정원 임무</strong><span>꽃밭 세 곳까지 걸어가 직접 물을 주세요 · 보상 토큰 3개</span></div>
-          {[{ x: 77, y: 36, label: '분홍 튤립' }, { x: 80, y: 52, label: '노란 데이지' }, { x: 79, y: 69, label: '벚꽃 화단' }].map((flower, index) => <button key={flower.label} className={`world-hotspot flower-spot flower-${index} ${watered.includes(index) ? 'watered' : ''}`} onClick={(event) => { event.stopPropagation(); walkTo(flower.x - 9, flower.y + 7, () => waterFlower(index), 'water'); }} aria-label={`${flower.label}에 물주기`}><span>{watered.includes(index) ? '물을 줬어요' : `${flower.label} 물주기`}</span></button>)}
+          {[{ x: 76, y: 42, label: '분홍 튤립' }, { x: 77, y: 58, label: '노란 데이지' }, { x: 75, y: 75, label: '벚꽃 화단' }].map((flower, index) => <button key={flower.label} className={`world-hotspot flower-spot flower-${index} ${watered.includes(index) ? 'watered' : ''}`} onClick={(event) => { event.stopPropagation(); walkTo(flower.x - 11, flower.y, () => waterFlower(index), 'water'); }} aria-label={`${flower.label}에 물주기`}><span>{watered.includes(index) ? '물을 줬어요' : `${flower.label} 물주기`}</span></button>)}
         </>}
         {building.name === '별빛우체국' && <>
           <img className="room-npc post-npc" src="/durikong.png" alt="우체국의 두리콩" />
-          <button className="world-hotspot friend-talk-spot post-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('두리콩', 54, 45); }} aria-label="두리콩과 이야기하기"><span>두리콩과 이야기</span></button>
-          <button className="world-hotspot post-mail-spot" onClick={(event) => { event.stopPropagation(); walkTo(25, 58, openLetter, 'read'); }}><span>{letterOpened ? '오늘의 칭찬 편지' : '도착한 편지 열기'}</span></button>
-          <button className="world-hotspot post-write-spot" onClick={(event) => { event.stopPropagation(); walkTo(76, 57, () => { setNotice('모모몽이 책상에 앉아 편지지를 펼쳤어요.'); window.setTimeout(() => setPostMode('write'), 700); }, 'write'); }}><span>그림 손편지 쓰기</span></button>
+          <button className="world-hotspot friend-talk-spot post-friend-spot" onClick={(event) => { event.stopPropagation(); talkInside('두리콩', 50, 51); }} aria-label="두리콩과 이야기하기"><span>두리콩과 이야기</span></button>
+          <button className="world-hotspot post-mail-spot" onClick={(event) => { event.stopPropagation(); walkTo(20, 53, openLetter, 'read'); }}><span>{letterOpened ? '오늘의 칭찬 편지' : '도착한 편지 열기'}</span></button>
+          <button className="world-hotspot post-write-spot" onClick={(event) => { event.stopPropagation(); walkTo(78, 61, () => { setNotice('모모몽이 책상에 앉아 편지지를 펼쳤어요.'); window.setTimeout(() => setPostMode('write'), 700); }, 'write'); }}><span>그림 손편지 쓰기</span></button>
           {sentLetters.length > 0 && <div className="room-sent-count">보낸 손편지 {sentLetters.length}통</div>}
           {postMode === 'write' && <div className="room-action-panel"><header><strong>알록달록 그림 손편지</strong><button onClick={() => { setPostMode('read'); setRoomAction(null); }}>닫기</button></header><div className="letter-composer"><DrawingPad onDraw={setDrawingData} /><textarea value={letterText} onChange={(event) => setLetterText(event.target.value)} maxLength={100} placeholder="엄마 아빠에게 전하고 싶은 말을 직접 써 보세요…" aria-label="손편지 내용" /><button className="send-letter" onClick={sendLetter}>두리콩에게 전해주기</button></div></div>}
         </>}
