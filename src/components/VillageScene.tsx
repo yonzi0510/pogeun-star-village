@@ -18,6 +18,16 @@ export type VillageBuildingHit = {
   onEnter: () => void;
 };
 
+export type VillageSocialNeighbor = {
+  name: string;
+  sprite: string;
+  x: number;
+  y: number;
+  activityId: string;
+  actionLabel: string;
+  line: string;
+};
+
 type Props = {
   mapSrc: string;
   mapAlt: string;
@@ -27,12 +37,14 @@ type Props = {
   selected: string;
   walking: boolean;
   buildings: VillageBuildingHit[];
+  socialNeighbors: VillageSocialNeighbor[];
   unlockedResidents: string[];
   seasonalEvent: SeasonalEvent | null;
   now: Date | null;
   onMovePlayer: (event: PointerEvent<HTMLDivElement>) => void;
   onSelectPlayer: () => void;
   onTalkTo: (name: string, index: number) => void;
+  onSocialize: (neighbor: VillageSocialNeighbor) => void;
   onLockedResident: (name: string) => void;
   onLockedBuilding: () => void;
 };
@@ -49,12 +61,14 @@ export function VillageScene({
   selected,
   walking,
   buildings,
+  socialNeighbors,
   unlockedResidents,
   seasonalEvent,
   now,
   onMovePlayer,
   onSelectPlayer,
   onTalkTo,
+  onSocialize,
   onLockedResident,
   onLockedBuilding,
 }: Props) {
@@ -89,6 +103,24 @@ export function VillageScene({
             {!building.unlocked && <span className="locked-badge" aria-hidden="true">☁️🔒</span>}
           </button>
         ))}
+        <div className="social-neighbor-layer" aria-label="마을 사회활동 주민">
+          {socialNeighbors.map((neighbor) => (
+            <button
+              key={neighbor.name}
+              className="social-neighbor"
+              style={{ left: `${neighbor.x}%`, top: `${neighbor.y}%` }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSocialize(neighbor);
+              }}
+              aria-label={`${neighbor.name}에게 ${neighbor.actionLabel}`}
+            >
+              <img src={neighbor.sprite} alt="" />
+              <span>{neighbor.actionLabel}</span>
+              <em>{neighbor.name}</em>
+            </button>
+          ))}
+        </div>
         <div className="moving-layer">
           {residents.map((entry, index) => {
             const position = positions[index] ?? { x: 50, y: 65 };

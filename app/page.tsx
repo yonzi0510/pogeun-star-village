@@ -19,6 +19,13 @@ const residents = [
   { name: '루루별', sprite: '/lurustar.png', portrait: 'p3', color: 'lavender' },
 ];
 
+const socialNeighbors = [
+  { name: '토리', sprite: '/durikong.png', x: 24, y: 67, activityId: 'greet-neighbor', actionLabel: '인사하기', line: '토리가 활짝 손을 흔들었어요. 먼저 인사한 마음이 칭찬 토큰이 됐어요!' },
+  { name: '보송', sprite: '/popo.png', x: 39, y: 77, activityId: 'say-thanks', actionLabel: '고맙다 말하기', line: '보송이에게 고맙다고 말했어요. 따뜻한 말 한마디가 별빛을 만들었어요!' },
+  { name: '반짝이', sprite: '/lurustar.png', x: 61, y: 70, activityId: 'share-turn', actionLabel: '차례 나누기', line: '반짝이와 차례를 나눴어요. 같이 쓰는 연습으로 토큰을 받았어요!' },
+  { name: '콩콩', sprite: '/momomong.png', x: 78, y: 79, activityId: 'keep-promise', actionLabel: '약속 지키기', line: '콩콩과 한 약속을 지켰어요. 구름도 조금 더 옅어졌어요!' },
+];
+
 const friendDialogues: Record<string, string[]> = {
   '루루별': ['어서 와, 모모몽! 네 방의 별빛이 오늘 더 반짝여.', '같이 장난감 별자리를 만들어 볼래?', '네가 놀러 오니까 집이 훨씬 포근해졌어!'],
   '포포': ['정원에 온 걸 환영해! 꽃들이 네 발소리를 듣고 깨어났어.', '물을 머금은 꽃은 밤이 되면 작은 별빛을 낸대.', '다음에는 무지개 씨앗도 함께 심어 보자!'],
@@ -311,6 +318,29 @@ export default function Home() {
     setNotice('넓어진 마을 바닥을 눌러 모모몽을 움직여 보세요!');
   }
 
+  function socializeWithNeighbor(neighbor: (typeof socialNeighbors)[number]) {
+    const activity = VILLAGE_ACTIVITIES.find((entry) => entry.id === neighbor.activityId);
+    setPositions((current) => current.map((position, index) => index === 1 ? { x: Math.max(12, neighbor.x - 7), y: neighbor.y } : position));
+    setSelected('모모몽');
+    setVillageWalking(true);
+    if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
+    villageMotionTimer.current = window.setTimeout(() => {
+      setVillageWalking(false);
+      if (!activity) {
+        setNotice(`${neighbor.name}와 함께 시간을 보냈어요.`);
+        return;
+      }
+      if (!isActivityReady(activityLog, activity.id)) {
+        setNotice(`${neighbor.name}: 오늘은 이미 했던 활동이에요. 내일 또 만나자!`);
+        return;
+      }
+      setTokens((value) => value + activity.tokens);
+      setStarlight((value) => value + activity.starlight);
+      setActivityLog((log) => ({ ...log, [activity.id]: new Date().toISOString() }));
+      setNotice(`${neighbor.line} 토큰 +${activity.tokens}, 별빛 +${activity.starlight}`);
+    }, 650);
+  }
+
   function talkTo(name: string, index: number) {
     const destination = positions[index] ?? { x: 50, y: 65 };
     setPositions((current) => current.map((position, positionIndex) => positionIndex === 1 ? { x: Math.max(15, destination.x - 8), y: destination.y } : position));
@@ -441,9 +471,11 @@ export default function Home() {
               playerIndex={1}
               selected={selected}
               walking={villageWalking}
+              socialNeighbors={socialNeighbors}
               onMovePlayer={movePlayer}
               onSelectPlayer={selectPlayer}
               onTalkTo={talkTo}
+              onSocialize={socializeWithNeighbor}
               unlockedResidents={stage.unlockedResidents}
               seasonalEvent={seasonalEvent}
               now={now}
