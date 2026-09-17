@@ -24,11 +24,13 @@ const residents = [
   { name: '루루별', sprite: '/lurustar.png', portrait: 'p3', color: 'lavender' },
 ];
 
+// x는 화면 왼쪽 좌측 패널(오늘의 마을 생활 카드, 약 34%까지)에 가려지지 않도록
+// 46% 이상으로 잡는다.
 const socialNeighbors = [
-  { name: '토리', sprite: '/npc-tori.png', x: 22, y: 64, activityId: 'greet-neighbor', actionLabel: '인사하기', line: '토리가 활짝 손을 흔들었어요. 먼저 인사한 마음이 칭찬 토큰이 됐어요!' },
-  { name: '보송', sprite: '/npc-bosong.png', x: 38, y: 81, activityId: 'say-thanks', actionLabel: '고맙다 말하기', line: '보송이에게 고맙다고 말했어요. 따뜻한 말 한마디가 별빛을 만들었어요!' },
-  { name: '반짝이', sprite: '/npc-banjjaki.png', x: 64, y: 66, activityId: 'share-turn', actionLabel: '차례 나누기', line: '반짝이와 차례를 나눴어요. 같이 쓰는 연습으로 토큰을 받았어요!' },
-  { name: '콩콩', sprite: '/npc-kongkong.png', x: 82, y: 80, activityId: 'keep-promise', actionLabel: '약속 지키기', line: '콩콩과 한 약속을 지켰어요. 구름도 조금 더 옅어졌어요!' },
+  { name: '토리', sprite: '/npc-tori.png', x: 46, y: 58, activityId: 'greet-neighbor', actionLabel: '인사하기', line: '토리가 활짝 손을 흔들었어요. 먼저 인사한 마음이 칭찬 토큰이 됐어요!' },
+  { name: '보송', sprite: '/npc-bosong.png', x: 58, y: 84, activityId: 'say-thanks', actionLabel: '고맙다 말하기', line: '보송이에게 고맙다고 말했어요. 따뜻한 말 한마디가 별빛을 만들었어요!' },
+  { name: '반짝이', sprite: '/npc-banjjaki.png', x: 70, y: 60, activityId: 'share-turn', actionLabel: '차례 나누기', line: '반짝이와 차례를 나눴어요. 같이 쓰는 연습으로 토큰을 받았어요!' },
+  { name: '콩콩', sprite: '/npc-kongkong.png', x: 85, y: 82, activityId: 'keep-promise', actionLabel: '약속 지키기', line: '콩콩과 한 약속을 지켰어요. 구름도 조금 더 옅어졌어요!' },
 ];
 
 const friendDialogues: Record<string, string[]> = {
