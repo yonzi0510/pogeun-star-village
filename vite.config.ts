@@ -19,8 +19,11 @@ const localBindingConfig = {
     ? [
         {
           binding: d1,
-          database_name: 'site-creator-d1',
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: 'pogeun-star-village-db',
+          // 실제 배포에서는 Cloudflare 대시보드 빌드 환경 변수로 D1_DATABASE_ID를 설정한다
+          // (대시보드에서 D1 데이터베이스를 만들면 발급되는 UUID). 로컬 개발에서는
+          // Miniflare가 어떤 값이든 로컬 sqlite로 에뮬레이션하므로 플레이스홀더로 충분하다.
+          database_id: process.env.D1_DATABASE_ID ?? SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
         },
       ]
     : [],

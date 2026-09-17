@@ -1,14 +1,19 @@
 'use client';
 
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { FamilyLinkModal } from '../src/components/FamilyLinkModal';
 import { GameHeader } from '../src/components/GameHeader';
 import { PraiseCard } from '../src/components/PraiseCard';
 import { VillageActivityCard } from '../src/components/VillageActivityCard';
 import { VillageProgress } from '../src/components/VillageProgress';
 import { VillageScene } from '../src/components/VillageScene';
+import type { PraiseEvent } from '../src/game/family';
 import { getNextStage, getVillageStage, isActivityReady, VILLAGE_ACTIVITIES, withObjectParticle, type VillageActivity } from '../src/game/village';
 import { getResidentActivity } from '../src/game/schedule';
 import { getActiveSeasonalEvent } from '../src/game/calendar';
+
+const FAMILY_CODE_KEY = 'pogeun-star-village-family-code';
+const FAMILY_CURSOR_KEY = 'pogeun-star-village-family-cursor';
 
 type Tab = '마을' | '친구' | '별뽑기' | '꾸미기' | '앨범';
 
@@ -82,7 +87,6 @@ function DrawingPad({ onDraw }: { onDraw: (image: string) => void }) {
 export default function Home() {
   const saveReady = useRef(false);
   const [allowPortrait, setAllowPortrait] = useState(false);
-  const [showPraise, setShowPraise] = useState(false);
   const [tab, setTab] = useState<Tab>('마을');
   const [selected, setSelected] = useState('모모몽');
   const [tokens, setTokens] = useState(24);
@@ -118,6 +122,13 @@ export default function Home() {
   const [activityLog, setActivityLog] = useState<Record<string, string>>({});
   // 마운트 전에는 null: 서버와 클라이언트의 new Date()가 어긋나는 hydration mismatch를 막는다.
   const [now, setNow] = useState<Date | null>(null);
+  const [familyCode, setFamilyCode] = useState<string | null>(null);
+  const [familyCreating, setFamilyCreating] = useState(false);
+  const [familyError, setFamilyError] = useState<string | null>(null);
+  const [showFamilyModal, setShowFamilyModal] = useState(false);
+  const [praiseQueue, setPraiseQueue] = useState<PraiseEvent[]>([]);
+  const [activePraise, setActivePraise] = useState<PraiseEvent | null>(null);
+  const praiseCursor = useRef(0);
 
   const stage = getVillageStage(starlight);
   const nextStage = getNextStage(stage);
@@ -131,10 +142,50 @@ export default function Home() {
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
   }, []);
   useEffect(() => {
-    const openTimer = window.setTimeout(() => setShowPraise(true), 700);
-    const closeTimer = window.setTimeout(() => setShowPraise(false), 5700);
-    return () => { window.clearTimeout(openTimer); window.clearTimeout(closeTimer); };
+    let timer: number | undefined;
+    try {
+      const savedCode = window.localStorage.getItem(FAMILY_CODE_KEY);
+      const savedCursor = Number(window.localStorage.getItem(FAMILY_CURSOR_KEY) ?? '0');
+      if (Number.isFinite(savedCursor)) praiseCursor.current = savedCursor;
+      if (savedCode) timer = window.setTimeout(() => setFamilyCode(savedCode), 0);
+    } catch { /* private browsing keeps the family link unset for this session */ }
+    return () => { if (timer) window.clearTimeout(timer); };
   }, []);
+  useEffect(() => {
+    if (!familyCode) return;
+    let cancelled = false;
+    async function poll() {
+      try {
+        const response = await fetch(`/api/praise?code=${familyCode}&afterId=${praiseCursor.current}`);
+        if (!response.ok || cancelled) return;
+        const data = await response.json() as { events?: PraiseEvent[] };
+        const events = data.events ?? [];
+        if (cancelled || events.length === 0) return;
+        setTokens((value) => value + events.reduce((sum, event) => sum + event.tokens, 0));
+        setStarlight((value) => value + events.reduce((sum, event) => sum + event.starlight, 0));
+        setPraiseQueue((queue) => [...queue, ...events]);
+        praiseCursor.current = events.reduce((max, event) => Math.max(max, event.id), praiseCursor.current);
+        try { window.localStorage.setItem(FAMILY_CURSOR_KEY, String(praiseCursor.current)); } catch { /* ignore */ }
+      } catch { /* offline for a moment — the next poll picks it back up */ }
+    }
+    poll();
+    const timer = window.setInterval(poll, 8000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [familyCode]);
+  useEffect(() => {
+    if (activePraise || praiseQueue.length === 0) return;
+    const [next, ...rest] = praiseQueue;
+    const timer = window.setTimeout(() => {
+      setActivePraise(next);
+      setPraiseQueue(rest);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activePraise, praiseQueue]);
+  useEffect(() => {
+    if (!activePraise) return;
+    const timer = window.setTimeout(() => setActivePraise(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [activePraise]);
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem('pogeun-star-village-save-v1') ?? 'null');
@@ -214,7 +265,6 @@ export default function Home() {
   }
 
   function enterBuilding(nextBuilding: { name: string; icon: string; message: string }) {
-    setShowPraise(false);
     setRoomDialogue(null);
     setRoomPosition({ x: 50, y: 78 });
     setPostMode('read');
@@ -263,6 +313,23 @@ export default function Home() {
     setNotice(`${activity.name} 실천! 칭찬 토큰 +${activity.tokens}, 별빛 +${activity.starlight}`);
   }
 
+  async function createFamilyCode() {
+    setFamilyCreating(true);
+    setFamilyError(null);
+    try {
+      const response = await fetch('/api/family', { method: 'POST' });
+      if (!response.ok) throw new Error('create_failed');
+      const data = await response.json() as { code?: string };
+      if (!data.code) throw new Error('create_failed');
+      setFamilyCode(data.code);
+      try { window.localStorage.setItem(FAMILY_CODE_KEY, data.code); } catch { /* ignore */ }
+    } catch {
+      setFamilyError('코드를 만들지 못했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setFamilyCreating(false);
+    }
+  }
+
   function lockedResidentTap(name: string) {
     setNotice(`별빛을 더 모으면 ${withObjectParticle(name)} 만날 수 있어요!`);
   }
@@ -287,7 +354,7 @@ export default function Home() {
   }
 
   function selectTab(nextTab: Tab) {
-    setTab(nextTab); setNotice(''); setShowPraise(false);
+    setTab(nextTab); setNotice('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -389,7 +456,7 @@ export default function Home() {
     <main className={`game-shell ${allowPortrait ? 'portrait-allowed' : ''}`}>
       <div className="sky-decor" aria-hidden="true"><span>☁️</span><span>✨</span><span>☁️</span></div>
       <div className="game-frame" aria-hidden={building ? true : undefined}>
-        <GameHeader tokens={tokens} starlight={starlight} timeLabel={timeLabel} isVillageTab={tab === '마을'} />
+        <GameHeader tokens={tokens} starlight={starlight} timeLabel={timeLabel} isVillageTab={tab === '마을'} onOpenFamily={() => setShowFamilyModal(true)} />
 
         {tab === '마을' ? (
           <>
@@ -416,7 +483,7 @@ export default function Home() {
               ]}
             />
             <div className="side-panel">
-              {showPraise && <PraiseCard onClose={() => setShowPraise(false)} />}
+              {activePraise && <PraiseCard praise={activePraise} onClose={() => setActivePraise(null)} />}
               <VillageActivityCard activities={VILLAGE_ACTIVITIES} isReady={(id) => isActivityReady(activityLog, id)} onComplete={completeActivity} />
               <VillageProgress
                 starlight={starlight}
@@ -445,6 +512,15 @@ export default function Home() {
         <nav className={`tabbar ${tab === '마을' ? 'village-tabbar' : ''}`} aria-label="게임 메뉴">{tabs.map((entry) => <button key={entry.name} className={tab === entry.name ? 'active' : ''} aria-current={tab === entry.name ? 'page' : undefined} onClick={() => selectTab(entry.name)}><span className={`menu-icon ${entry.icon}`} aria-hidden="true" />{entry.name}</button>)}</nav>
       </div>
       {notice && <button className="toast" onClick={() => setNotice('')} aria-live="polite">{notice}<span>×</span></button>}
+      {showFamilyModal && (
+        <FamilyLinkModal
+          familyCode={familyCode}
+          creating={familyCreating}
+          error={familyError}
+          onCreate={createFamilyCode}
+          onClose={() => setShowFamilyModal(false)}
+        />
+      )}
       {building && <section className={`room-world ${building.name === '모모몽의 집' ? 'home-world' : building.name === '구름정원' ? 'garden-world' : 'post-world'}`} role="dialog" aria-modal="true" aria-label={building.name}>
         <img className="room-world-art" src={building.name === '모모몽의 집' ? '/room-home-v2.png' : building.name === '구름정원' ? '/room-garden-v2.png' : '/room-post-v2.png'} alt={`${building.name} 안의 걸어 다닐 수 있는 공간`} />
         <div className="room-walk-layer" onPointerDown={moveInside} role="application" aria-label={`${building.name} 바닥을 눌러 모모몽 이동`} />

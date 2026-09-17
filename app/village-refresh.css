@@ -600,3 +600,267 @@
     font-size: 19px;
   }
 }
+
+/* ---- 가족 연동(부모 앱) ---- */
+
+.family-link-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: 4px;
+  border: 1.5px solid var(--village-line);
+  border-radius: 50%;
+  background: var(--village-paper);
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(92,68,50,.12);
+}
+
+.family-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(91,67,55,.42);
+}
+
+.family-modal {
+  position: relative;
+  width: min(360px, 100%);
+  padding: 22px 20px;
+  border-radius: 22px;
+  background: var(--village-paper);
+  box-shadow: 0 20px 40px rgba(92,68,50,.28);
+  color: var(--village-ink);
+  text-align: center;
+}
+
+.family-modal h2 {
+  margin: 0 0 10px;
+  font-size: 17px;
+}
+
+.family-modal p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--village-muted);
+}
+
+.family-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: none;
+  font-size: 18px;
+  color: var(--village-muted);
+}
+
+.family-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--village-mint);
+}
+
+.family-code strong {
+  font-size: 24px;
+  letter-spacing: 4px;
+}
+
+.family-code button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--village-gold);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--village-ink);
+}
+
+.family-modal-hint {
+  font-size: 11.5px;
+}
+
+.family-modal-hint code {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--village-lavender);
+}
+
+.family-code-create {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 14px;
+  background: var(--village-gold);
+  font-weight: 700;
+  color: var(--village-ink);
+}
+
+.family-code-create:disabled {
+  opacity: .6;
+}
+
+.family-modal-error {
+  margin-top: 10px;
+  color: #c9564a;
+  font-size: 12px;
+}
+
+/* ---- 부모 화면 (/parent) ---- */
+
+.parent-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  background: linear-gradient(180deg, #fff6e9, #ffe0e8 55%, #cdeeff);
+}
+
+.parent-card {
+  width: min(420px, 100%);
+  padding: 26px 22px;
+  border-radius: 24px;
+  background: var(--village-paper);
+  box-shadow: 0 20px 40px rgba(92,68,50,.22);
+  color: var(--village-ink);
+}
+
+.parent-card h1 {
+  margin: 0 0 14px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.parent-card p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--village-muted);
+}
+
+.parent-code-input {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1.5px solid var(--village-line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 22px;
+  letter-spacing: 6px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.parent-primary-button {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 14px;
+  background: var(--village-gold);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--village-ink);
+}
+
+.parent-primary-button:disabled {
+  opacity: .6;
+}
+
+.parent-error {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: #c9564a;
+  text-align: center;
+}
+
+.parent-linked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: var(--village-mint);
+  font-size: 12.5px;
+}
+
+.parent-unlink {
+  border: none;
+  background: none;
+  color: var(--village-muted);
+  font-size: 11.5px;
+  text-decoration: underline;
+}
+
+.parent-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.parent-textarea {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 14px;
+  border: 1.5px solid var(--village-line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.parent-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.parent-tier {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px;
+  border: 1.5px solid var(--village-line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 10.5px;
+  color: var(--village-muted);
+}
+
+.parent-tier span {
+  font-size: 18px;
+}
+
+.parent-tier strong {
+  font-size: 11px;
+  color: var(--village-ink);
+}
+
+.parent-tier.selected {
+  border-color: var(--village-gold);
+  background: var(--village-peach);
+}
+
+.parent-sent-notice {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: #4c8c5e;
+  text-align: center;
+}

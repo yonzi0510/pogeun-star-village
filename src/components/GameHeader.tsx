@@ -5,9 +5,10 @@ type Props = {
   starlight: number;
   timeLabel: string;
   isVillageTab: boolean;
+  onOpenFamily: () => void;
 };
 
-export function GameHeader({ tokens, starlight, timeLabel, isVillageTab }: Props) {
+export function GameHeader({ tokens, starlight, timeLabel, isVillageTab, onOpenFamily }: Props) {
   return (
     <header className={`topbar ${isVillageTab ? 'village-topbar' : ''}`}>
       <div>
@@ -27,6 +28,7 @@ export function GameHeader({ tokens, starlight, timeLabel, isVillageTab }: Props
           <span>🌤️</span>
           <p>포근한 아침<strong>{timeLabel}</strong></p>
         </div>
+        <button className="family-link-button" onClick={onOpenFamily} aria-label="부모님과 가족 연동하기">👪</button>
       </div>
     </header>
   );
