@@ -949,3 +949,20 @@
   color: #4c8c5e;
   text-align: center;
 }
+
+/* ---- 마을일 카드 접기/펼치기 ---- */
+
+.side-panel-toggle {
+  display: inline-block;
+  align-self: flex-start;
+  width: auto;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--village-line);
+  border-radius: 12px;
+  background: var(--village-paper);
+  color: var(--village-ink);
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(92,68,50,.14);
+}

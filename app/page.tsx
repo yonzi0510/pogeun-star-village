@@ -137,6 +137,7 @@ export default function Home() {
   const [familyCreating, setFamilyCreating] = useState(false);
   const [familyError, setFamilyError] = useState<string | null>(null);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
+  const [sidePanelOpen, setSidePanelOpen] = useState(true);
   const [praiseQueue, setPraiseQueue] = useState<PraiseEvent[]>([]);
   const [activePraise, setActivePraise] = useState<PraiseEvent | null>(null);
   const praiseCursor = useRef(0);
@@ -582,15 +583,26 @@ export default function Home() {
                 { key: 'post', hitClassName: 'post-hit', ariaLabel: '우체국 문을 열고 별빛우체국에 들어가기', unlocked: stage.unlockedBuildings.includes('post'), onEnter: () => enterBuilding({ name: '별빛우체국', icon: '📮', message: '편지를 읽고 그리며 두리콩과 이야기하는 우체국이에요.' }) },
               ]}
             />
-            <div className="side-panel">
+            <div className={`side-panel ${sidePanelOpen ? '' : 'collapsed'}`}>
               {activePraise && <PraiseCard praise={activePraise} onClose={() => setActivePraise(null)} />}
-              <VillageActivityCard activities={VILLAGE_ACTIVITIES} isReady={(id) => isActivityReady(activityLog, id)} onComplete={completeActivity} />
-              <VillageProgress
-                starlight={starlight}
-                stage={stage}
-                nextStage={nextStage}
-                nextResidentHint={nextResident ? `곧 ${nextResident} 소식이 들려와요!` : null}
-              />
+              <button
+                className="side-panel-toggle"
+                onClick={() => setSidePanelOpen((value) => !value)}
+                aria-expanded={sidePanelOpen}
+              >
+                {sidePanelOpen ? '마을일 접기 ◂' : '마을일 보기 ▸'}
+              </button>
+              {sidePanelOpen && (
+                <>
+                  <VillageActivityCard activities={VILLAGE_ACTIVITIES} isReady={(id) => isActivityReady(activityLog, id)} onComplete={completeActivity} />
+                  <VillageProgress
+                    starlight={starlight}
+                    stage={stage}
+                    nextStage={nextStage}
+                    nextResidentHint={nextResident ? `곧 ${nextResident} 소식이 들려와요!` : null}
+                  />
+                </>
+              )}
             </div>
           </>
         ) : (
