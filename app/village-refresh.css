@@ -154,6 +154,91 @@
   z-index: 5;
 }
 
+.social-neighbor-layer {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  pointer-events: none;
+}
+
+.social-neighbor {
+  position: absolute;
+  width: clamp(58px, 6.8vw, 92px);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform: translate(-50%, -78%);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform .2s ease, filter .2s ease;
+}
+
+.social-neighbor::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: 15%;
+  width: 70%;
+  aspect-ratio: 1.9 / 1;
+  transform: translate(-50%, 42%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(89,62,42,.24), rgba(89,62,42,0) 70%);
+  filter: blur(2px);
+}
+
+.social-neighbor img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 6px rgba(74,56,43,.3));
+  animation: socialNpcBreathe 1.75s ease-in-out infinite alternate;
+}
+
+.social-neighbor:hover,
+.social-neighbor:focus-visible {
+  transform: translate(-50%, -82%) scale(1.04);
+  filter: drop-shadow(0 0 10px rgba(255,230,117,.58));
+}
+
+.social-neighbor span {
+  position: absolute;
+  left: 50%;
+  bottom: 88%;
+  width: max-content;
+  max-width: 132px;
+  transform: translateX(-50%);
+  padding: 4px 9px 5px;
+  border: 2px solid rgba(255,255,255,.92);
+  border-radius: 999px;
+  background: rgba(255,248,219,.9);
+  box-shadow: 0 4px 10px rgba(80,58,41,.18);
+  color: #664638;
+  font-size: 9px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.social-neighbor em {
+  display: inline-block;
+  margin-top: -8px;
+  padding: 2px 7px;
+  border: 1.5px solid rgba(255,255,255,.9);
+  border-radius: 999px;
+  background: rgba(255,253,247,.78);
+  color: #7c5b4b;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+@keyframes socialNpcBreathe {
+  from { transform: translateY(0) rotate(-1deg); }
+  to { transform: translateY(-4px) rotate(1deg); }
+}
+
 .moving-character {
   width: clamp(74px, 9.2vw, 118px);
   min-width: 0;
