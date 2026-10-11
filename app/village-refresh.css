@@ -334,12 +334,10 @@
   backdrop-filter: blur(12px);
 }
 
-@media (min-width: 1100px) {
-  .village-card.illustrated {
-    max-height: calc(100svh - 178px);
-    min-height: 590px;
-  }
-}
+/* 넓은 화면(태블릿/데스크톱)에서도 마을 지도가 화면을 꽉 채우도록 유지한다.
+   예전에는 1100px 이상에서 지도 높이를 제한해 "창" 느낌으로 보여줬는데,
+   실제로는 그 폭에서도 폰과 동일한 몰입형 전체화면으로 플레이하므로
+   더 이상 이 제한이 필요 없다 (아이패드에서 하단 탭바/카드가 잘려 보이던 원인). */
 
 @media (max-width: 899px) {
   .game-shell {
@@ -965,4 +963,65 @@
   font-size: 11px;
   font-weight: 700;
   box-shadow: 0 4px 10px rgba(92,68,50,.14);
+}
+
+/* ---- 태블릿/와이드 가로 화면에서도 전체화면 레이아웃이 깨지지 않도록 보강 ----
+   탭바 하단 고정, 지도 전체 채움이 좁은 모바일 폭에서만 걸리는 미디어쿼리에
+   묶여 있어서 아이패드 같은 중간 너비에서는 적용되지 않는 문제를 막는다. */
+
+.home-grid {
+  position: fixed !important;
+  inset: 0 !important;
+}
+
+.village-card.illustrated {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: auto !important;
+}
+
+.tabbar.village-tabbar {
+  position: fixed !important;
+  left: 50% !important;
+  top: auto !important;
+  bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  transform: translateX(-50%) !important;
+  width: min(480px, 70vw);
+  margin: 0;
+}
+
+.topbar.village-topbar {
+  position: fixed !important;
+  top: max(10px, env(safe-area-inset-top)) !important;
+}
+
+/* ---- 내 캐릭터 말풍선: 선택이 바뀔 때만 잠깐 보였다가 스스로 사라짐 ---- */
+
+.illustrated .speech {
+  animation: bubbleFloat 2.6s ease-in-out infinite, speechFade 6s ease-out forwards;
+}
+
+@keyframes speechFade {
+  0%, 65% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+/* ---- 이웃과의 상황이 잠깐 말풍선으로 펼쳐지는 연출 ---- */
+
+.neighbor-chat {
+  transform: translate(-50%, -120%);
+  z-index: 7;
+  min-width: 200px;
+  max-width: 260px;
+  text-align: center;
+  pointer-events: none;
+  animation: noticePop .3s cubic-bezier(.18,.9,.32,1.25);
+}
+
+.neighbor-chat strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #df607c;
 }

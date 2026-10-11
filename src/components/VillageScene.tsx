@@ -38,6 +38,7 @@ type Props = {
   walking: boolean;
   buildings: VillageBuildingHit[];
   socialNeighbors: VillageSocialNeighbor[];
+  neighborChat: { name: string; sprite: string; x: number; y: number; line: string } | null;
   unlockedResidents: string[];
   seasonalEvent: SeasonalEvent | null;
   now: Date | null;
@@ -62,6 +63,7 @@ export function VillageScene({
   walking,
   buildings,
   socialNeighbors,
+  neighborChat,
   unlockedResidents,
   seasonalEvent,
   now,
@@ -154,10 +156,20 @@ export function VillageScene({
             );
           })}
         </div>
-        <div className="speech" role="status">
+        <div className="speech" role="status" key={selected}>
           <strong>{focusedResident.name}</strong>
           <span>{getResidentActivity(focusedResident.name, now)}</span>
         </div>
+        {neighborChat && (
+          <div
+            className="quest-bubble neighbor-chat"
+            role="status"
+            style={{ left: `${neighborChat.x}%`, top: `${neighborChat.y}%` }}
+          >
+            <strong>{neighborChat.name}</strong>
+            <span>{neighborChat.line}</span>
+          </div>
+        )}
       </div>
     </section>
   );

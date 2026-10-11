@@ -109,6 +109,7 @@ export default function Home() {
   const roomActionTimer = useRef<number | null>(null);
   const roomMotionTimer = useRef<number | null>(null);
   const villageMotionTimer = useRef<number | null>(null);
+  const neighborChatTimer = useRef<number | null>(null);
   const [roomWalking, setRoomWalking] = useState(false);
   const [villageWalking, setVillageWalking] = useState(false);
   const [roomAction, setRoomAction] = useState<'water' | 'read' | 'write' | 'sleep' | 'sit' | 'play' | 'talk' | null>(null);
@@ -138,6 +139,7 @@ export default function Home() {
   const [familyError, setFamilyError] = useState<string | null>(null);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
   const [sidePanelOpen, setSidePanelOpen] = useState(true);
+  const [neighborChat, setNeighborChat] = useState<{ name: string; sprite: string; x: number; y: number; line: string } | null>(null);
   const [praiseQueue, setPraiseQueue] = useState<PraiseEvent[]>([]);
   const [activePraise, setActivePraise] = useState<PraiseEvent | null>(null);
   const praiseCursor = useRef(0);
@@ -299,6 +301,7 @@ export default function Home() {
     if (roomActionTimer.current) window.clearTimeout(roomActionTimer.current);
     if (roomMotionTimer.current) window.clearTimeout(roomMotionTimer.current);
     if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
+    if (neighborChatTimer.current) window.clearTimeout(neighborChatTimer.current);
   }, []);
 
   const timeLabel = `${String(Math.floor(gameMinutes / 60)).padStart(2, '0')}:${String(gameMinutes % 60).padStart(2, '0')}`;
@@ -430,10 +433,16 @@ export default function Home() {
         setNotice(`${neighbor.name}: 오늘은 이미 했던 활동이에요. 내일 또 만나자!`);
         return;
       }
-      setTokens((value) => value + activity.tokens);
-      setStarlight((value) => value + activity.starlight);
-      setActivityLog((log) => ({ ...log, [activity.id]: new Date().toISOString() }));
-      setNotice(`${neighbor.line} 토큰 +${activity.tokens}, 별빛 +${activity.starlight}`);
+      // 보상은 바로 주지 않고, 먼저 주민의 말풍선으로 상황이 잠깐 펼쳐지게 한다.
+      if (neighborChatTimer.current) window.clearTimeout(neighborChatTimer.current);
+      setNeighborChat({ name: neighbor.name, sprite: neighbor.sprite, x: neighbor.x, y: neighbor.y, line: neighbor.line });
+      neighborChatTimer.current = window.setTimeout(() => {
+        setNeighborChat(null);
+        setTokens((value) => value + activity.tokens);
+        setStarlight((value) => value + activity.starlight);
+        setActivityLog((log) => ({ ...log, [activity.id]: new Date().toISOString() }));
+        setNotice(`${neighbor.actionLabel} 완료! 칭찬 토큰 +${activity.tokens}, 별빛 +${activity.starlight}`);
+      }, 2000);
     }, 650);
   }
 
@@ -568,6 +577,7 @@ export default function Home() {
               selected={selected}
               walking={villageWalking}
               socialNeighbors={socialNeighbors}
+              neighborChat={neighborChat}
               onMovePlayer={movePlayer}
               onSelectPlayer={selectPlayer}
               onTalkTo={talkTo}
