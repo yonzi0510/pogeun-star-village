@@ -1025,3 +1025,13 @@
   margin-bottom: 2px;
   color: #df607c;
 }
+
+/* ---- 뽑기 결과 화면(.prize-reveal.grand-prize, z-index:12)이 "톡 넣기"
+   버튼을 덮어서 다시 뽑기를 시작할 수 없던 문제. 같은 .art-machine 안의
+   형제 요소라 z-index만 그보다 높여주면 바로 해결된다. ---- */
+.art-machine .coin-slot {
+  z-index: 13;
+}
+.art-machine .gacha-knob {
+  z-index: 13;
+}

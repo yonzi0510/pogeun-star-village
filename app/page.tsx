@@ -110,6 +110,7 @@ export default function Home() {
   const roomMotionTimer = useRef<number | null>(null);
   const villageMotionTimer = useRef<number | null>(null);
   const neighborChatTimer = useRef<number | null>(null);
+  const noticeTimer = useRef<number | null>(null);
   const [roomWalking, setRoomWalking] = useState(false);
   const [villageWalking, setVillageWalking] = useState(false);
   const [roomAction, setRoomAction] = useState<'water' | 'read' | 'write' | 'sleep' | 'sit' | 'play' | 'talk' | null>(null);
@@ -303,6 +304,12 @@ export default function Home() {
     if (villageMotionTimer.current) window.clearTimeout(villageMotionTimer.current);
     if (neighborChatTimer.current) window.clearTimeout(neighborChatTimer.current);
   }, []);
+  useEffect(() => {
+    if (!notice) return;
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(''), 3600);
+    return () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); };
+  }, [notice]);
 
   const timeLabel = `${String(Math.floor(gameMinutes / 60)).padStart(2, '0')}:${String(gameMinutes % 60).padStart(2, '0')}`;
 
@@ -532,7 +539,10 @@ export default function Home() {
     window.setTimeout(() => {
       playGachaSound('drop');
       const prize = residents[Math.floor(Math.random() * residents.length)];
-      setPendingPrize(prize.name); setGachaStage('dropped'); setNotice('달그락! 캡슐이 나왔어요. 눌러서 열어 보세요!');
+      // 캡슐이 나온 순간에는 토스트를 띄우지 않는다 — 안내 문구가 화면 중앙의
+      // "톡! 열기" 버튼과 겹쳐서 첫 탭이 버튼 대신 토스트에 씹히던 문제가 있었다.
+      // 캡슐 자체가 눈에 띄고 버튼 라벨이 이미 다음 행동을 알려준다.
+      setPendingPrize(prize.name); setGachaStage('dropped'); setNotice('');
     }, 2200);
   }
 
